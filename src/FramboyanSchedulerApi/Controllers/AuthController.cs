@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using FramboyanSchedulerApi.Models;
 using Microsoft.AspNetCore.Identity;
 using System.Threading.Tasks;
+using System.Net.Mail;
+using System.Net;
 
 namespace FramboyanSchedulerApi.Controllers
 {
@@ -26,7 +28,32 @@ namespace FramboyanSchedulerApi.Controllers
             var result = await _userManager.CreateAsync(user, model.Password);
 
             if (result.Succeeded)
+            {
+                // Send congratulatory email
+                try
+                {
+                    var smtpClient = new SmtpClient("smtp.yourprovider.com")
+                    {
+                        Port = 587,
+                        Credentials = new NetworkCredential("your@email.com", "yourpassword"),
+                        EnableSsl = true,
+                    };
+                    var mailMessage = new MailMessage
+                    {
+                        From = new MailAddress("your@email.com"),
+                        Subject = "Welcome to Framboyan Studio!",
+                        Body = "Congrats on your new account. Thanks for joining the studio!",
+                        IsBodyHtml = false,
+                    };
+                    mailMessage.To.Add(model.Email);
+                    await smtpClient.SendMailAsync(mailMessage);
+                }
+                catch
+                {
+                    // Log or handle email sending failure, but do not block registration
+                }
                 return Ok();
+            }
             else
                 return BadRequest(result.Errors);
         }

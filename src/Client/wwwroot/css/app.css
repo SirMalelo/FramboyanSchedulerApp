@@ -10,10 +10,22 @@ a, .btn-link {
     color: #0071c1;
 }
 
+
 .btn-primary {
     color: #fff;
-    background-color: #1b6ec2;
-    border-color: #1861ac;
+    background: linear-gradient(90deg, #000 0%, #ff8800 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.navbar, .nav, .sidebar, .nav-link, .nav-item {
+    background: linear-gradient(90deg, #000 0%, #ff8800 100%) !important;
+    color: #fff !important;
+}
+
+.nav-link.active, .nav-link:active, .nav-link:focus {
+    background: rgba(255,136,0,0.2) !important;
+    color: #ff8800 !important;
 }
 
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {

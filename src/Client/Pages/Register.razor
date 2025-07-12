@@ -1,14 +1,31 @@
 
 @* Blazor form components *@
-@using Microsoft.AspNetCore.Components.Forms
-@using Microsoft.AspNetCore.Components
-@using Microsoft.AspNetCore.Components.Web
-@using Microsoft.AspNetCore.Components
 @page "/register"
 
 
 @* Registration page for new users *@
+
+
 <h3>Register</h3>
+
+<div class="alert alert-info">
+    <strong>Password requirements:</strong><br />
+    - At least 6 characters<br />
+    - Must include uppercase, lowercase, a number, and a special character<br />
+    - <b>No spaces allowed</b><br />
+    Example: <code>ExampleP@ss1!</code>
+    <br /><br />
+    <strong>Username:</strong> Please use a valid email address.
+</div>
+
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success">@successMessage</div>
+}
+else if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
 
 
 @* Registration form using Blazor's EditForm and validation components *@
@@ -16,7 +33,7 @@
     <DataAnnotationsValidator />
     <ValidationSummary />
     <div class="mb-3">
-        <label>Email</label>
+        <label>Email (Username)</label>
         <InputText @bind-Value="registerModel.Email" class="form-control" />
     </div>
     <div class="mb-3">
@@ -38,21 +55,65 @@
     // Model for registration form data
     private RegisterModel registerModel = new();
     private string? errorMessage;
+    private string? successMessage;
 
     // Handles registration form submission
     private async Task HandleRegister()
     {
         errorMessage = null;
+        successMessage = null;
+        // Prevent spaces in password
+        if (registerModel.Password.Contains(" ") || registerModel.ConfirmPassword.Contains(" "))
+        {
+            errorMessage = "Password cannot contain spaces.";
+            return;
+        }
         var response = await Http.PostAsJsonAsync("api/auth/register", registerModel);
         if (response.IsSuccessStatusCode)
         {
-            // Registration successful, redirect to login
+            successMessage = "Registration complete! Redirecting to login...";
+            await Task.Delay(1500);
             Navigation.NavigateTo("/login");
         }
         else
         {
             var error = await response.Content.ReadAsStringAsync();
-            errorMessage = $"Registration failed: {error}";
+            if (error.Contains("Passwords do not match"))
+            {
+                errorMessage = "Passwords do not match. Please make sure both password fields are identical.";
+            }
+            else if (error.Contains("PasswordRequiresNonAlphanumeric"))
+            {
+                errorMessage = "Password must include at least one special character (e.g. !, @, #, $).";
+            }
+            else if (error.Contains("PasswordRequiresDigit"))
+            {
+                errorMessage = "Password must include at least one number (0-9).";
+            }
+            else if (error.Contains("PasswordRequiresLower"))
+            {
+                errorMessage = "Password must include at least one lowercase letter (a-z).";
+            }
+            else if (error.Contains("PasswordRequiresUpper"))
+            {
+                errorMessage = "Password must include at least one uppercase letter (A-Z).";
+            }
+            else if (error.Contains("PasswordTooShort"))
+            {
+                errorMessage = "Password must be at least 6 characters long.";
+            }
+            else if (error.Contains("DuplicateUserName"))
+            {
+                errorMessage = "An account with this email already exists. Please use a different email or log in.";
+            }
+            else if (error.Contains("InvalidEmail"))
+            {
+                errorMessage = "Please enter a valid email address.";
+            }
+            else
+            {
+                errorMessage = "Registration failed. Please check your information and try again.";
+            }
         }
     }
 
