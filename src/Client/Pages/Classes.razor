@@ -1,13 +1,20 @@
+
+@* Displays a list of upcoming classes and handles check-in *@
 @page "/classes"
 @using Client.Models
+@using Microsoft.AspNetCore.Components
+@using Client.Pages
 @using System.Net.Http.Json
 @inject HttpClient Http
 
+
 <h1>Upcoming Classes</h1>
 
+
+@* Show loading, empty, or list of classes *@
 @if (classes == null)
 {
-  <p>Loading classes…</p>
+  <p>Loading classes...</p>
 }
 else if (classes.Count == 0)
 {
@@ -24,16 +31,19 @@ else
   }
 }
 
+
 @code {
   private List<ClassModel> classes = new();
-  private string currentUserId = "user-123"; // replace with actual user ID logic
+  private string currentUserId = "user-123"; // TODO: Replace with real user logic
 
+  // Loads classes from the API when the page initializes
   protected override async Task OnInitializedAsync()
   {
     classes = (await Http.GetFromJsonAsync<List<ClassModel>>("api/classes")) 
               ?? new List<ClassModel>();
   }
 
+  // Removes a class from the list after a successful check-in
   private void HandleClassCheckedIn(string classId)
   {
     var item = classes.FirstOrDefault(c => c.Id == classId);
@@ -44,3 +54,4 @@ else
     }
   }
 }
+                    

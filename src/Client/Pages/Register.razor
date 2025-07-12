@@ -1,8 +1,17 @@
+
+@* Blazor form components *@
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Components
 @page "/register"
 
+
+@* Registration page for new users *@
 <h3>Register</h3>
 
+
+@* Registration form using Blazor's EditForm and validation components *@
 <EditForm Model="registerModel" OnValidSubmit="HandleRegister">
     <DataAnnotationsValidator />
     <ValidationSummary />
@@ -21,14 +30,33 @@
     <button class="btn btn-primary" type="submit">Register</button>
 </EditForm>
 
-@code {
-    private RegisterModel registerModel = new();
 
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+@code {
+    // Model for registration form data
+    private RegisterModel registerModel = new();
+    private string? errorMessage;
+
+    // Handles registration form submission
     private async Task HandleRegister()
     {
-        // TODO: Call API for registration
+        errorMessage = null;
+        var response = await Http.PostAsJsonAsync("api/auth/register", registerModel);
+        if (response.IsSuccessStatusCode)
+        {
+            // Registration successful, redirect to login
+            Navigation.NavigateTo("/login");
+        }
+        else
+        {
+            var error = await response.Content.ReadAsStringAsync();
+            errorMessage = $"Registration failed: {error}";
+        }
     }
 
+    // Model for registration form
     public class RegisterModel
     {
         public string Email { get; set; } = string.Empty;

@@ -1,7 +1,11 @@
+
+@* Card component for displaying a class and handling check-in *@
 @using Client.Models
 @using System.Net.Http.Json
 @inject HttpClient Http
 
+
+@* Display class details and check-in button *@
 <div class="card border p-3 mb-3">
   <h3 class="mb-1">@ClassData.Name</h3>
   <p class="mb-1">Time: @ClassData.Time</p>
@@ -11,11 +15,13 @@
   </button>
 </div>
 
+
 @code {
   [Parameter] public ClassModel ClassData { get; set; } = default!;
   [Parameter] public string UserId { get; set; } = default!;
   [Parameter] public EventCallback<string> OnCheckIn { get; set; }
 
+  // Calls the API to check in and notifies the parent if successful
   private async Task HandleCheckIn()
   {
     var payload = new { classId = ClassData.Id, userId = UserId };

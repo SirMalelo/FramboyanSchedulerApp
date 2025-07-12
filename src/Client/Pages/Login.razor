@@ -1,9 +1,29 @@
 
+
+@* Blazor form components *@
 @using Microsoft.AspNetCore.Components.Forms
+@* JS interop for localStorage access *@
+@inject IJSRuntime JS
+@* Navigation for redirects *@
+@inject NavigationManager Navigation
+@* HttpClient for API calls *@
+@inject HttpClient Http
 @page "/login"
 
+
+
+@* Login page for user authentication *@
 <h3>Login</h3>
 
+
+@* Show error message if login fails *@
+@if (!string.IsNullOrEmpty(errorMessage))
+{
+    <div class="alert alert-danger">@errorMessage</div>
+}
+
+
+@* Login form using Blazor's EditForm and validation components *@
 <EditForm Model="loginModel" OnValidSubmit="HandleLogin">
     <DataAnnotationsValidator />
     <ValidationSummary />
@@ -18,17 +38,59 @@
     <button class="btn btn-primary" type="submit">Login</button>
 </EditForm>
 
+
 @code {
+    // Model for login form data
     private LoginModel loginModel = new();
 
+    // Holds error message to display to user
+    private string? errorMessage;
+
+    // Handles login form submission
     private async Task HandleLogin()
     {
-        // TODO: Call API for login
+        errorMessage = null;
+        try
+        {
+            // Send login data to API
+            var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
+            if (response.IsSuccessStatusCode)
+            {
+                // Parse token from API response
+                var result = await response.Content.ReadFromJsonAsync<LoginResult>();
+                if (!string.IsNullOrEmpty(result?.Token))
+                {
+                    // Store token in localStorage
+                    await JS.InvokeVoidAsync("localStorage.setItem", "authToken", result.Token);
+                    // Redirect to home page
+                    Navigation.NavigateTo("/");
+                }
+                else
+                {
+                    errorMessage = "Login failed: No token returned.";
+                }
+            }
+            else
+            {
+                errorMessage = "Login failed. Please check your credentials.";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = $"An error occurred: {ex.Message}";
+        }
     }
 
+    // Model for login form
     public class LoginModel
     {
         public string Email { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
+    }
+
+    // Model for login API response
+    public class LoginResult
+    {
+        public string Token { get; set; } = string.Empty;
     }
 }
