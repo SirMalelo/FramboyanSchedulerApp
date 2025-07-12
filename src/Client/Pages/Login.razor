@@ -62,6 +62,19 @@
                 {
                     // Store token in localStorage
                     await JS.InvokeVoidAsync("localStorage.setItem", "authToken", result.Token);
+                    // Check if this is a new device (no 'hasLoggedIn' flag)
+                    var hasLoggedIn = await JS.InvokeAsync<string>("localStorage.getItem", "hasLoggedIn");
+                    if (string.IsNullOrEmpty(hasLoggedIn))
+                    {
+                        await JS.InvokeVoidAsync("localStorage.setItem", "hasLoggedIn", "true");
+                        // Redirect to home for new device
+                        Navigation.NavigateTo("/");
+                    }
+                    else
+                    {
+                        // Normal redirect after login
+                        Navigation.NavigateTo("/");
+                    }
                     // Redirect to home page
                     Navigation.NavigateTo("/");
                 }
