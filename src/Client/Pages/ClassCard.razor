@@ -1,0 +1,32 @@
+@using Client.Models
+@using System.Net.Http.Json
+@inject HttpClient Http
+
+<div class="card border p-3 mb-3">
+  <h3 class="mb-1">@ClassData.Name</h3>
+  <p class="mb-1">Time: @ClassData.Time</p>
+  <p class="mb-3">Location: @ClassData.Location</p>
+  <button class="btn btn-primary" @onclick="HandleCheckIn">
+    Check In
+  </button>
+</div>
+
+@code {
+  [Parameter] public ClassModel ClassData { get; set; } = default!;
+  [Parameter] public string UserId { get; set; } = default!;
+  [Parameter] public EventCallback<string> OnCheckIn { get; set; }
+
+  private async Task HandleCheckIn()
+  {
+    var payload = new { classId = ClassData.Id, userId = UserId };
+    var response = await Http.PostAsJsonAsync("api/checkin", payload);
+    if (response.IsSuccessStatusCode)
+    {
+      await OnCheckIn.InvokeAsync(ClassData.Id);
+    }
+    else
+    {
+      Console.Error.WriteLine($"Check-in failed: {response.ReasonPhrase}");
+    }
+  }
+}
