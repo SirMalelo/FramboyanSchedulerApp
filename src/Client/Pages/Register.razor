@@ -1,0 +1,38 @@
+@using Microsoft.AspNetCore.Components.Forms
+@page "/register"
+
+<h3>Register</h3>
+
+<EditForm Model="registerModel" OnValidSubmit="HandleRegister">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="mb-3">
+        <label>Email</label>
+        <InputText @bind-Value="registerModel.Email" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label>Password</label>
+        <InputText @bind-Value="registerModel.Password" type="password" class="form-control" />
+    </div>
+    <div class="mb-3">
+        <label>Confirm Password</label>
+        <InputText @bind-Value="registerModel.ConfirmPassword" type="password" class="form-control" />
+    </div>
+    <button class="btn btn-primary" type="submit">Register</button>
+</EditForm>
+
+@code {
+    private RegisterModel registerModel = new();
+
+    private async Task HandleRegister()
+    {
+        // TODO: Call API for registration
+    }
+
+    public class RegisterModel
+    {
+        public string Email { get; set; } = string.Empty;
+        public string Password { get; set; } = string.Empty;
+        public string ConfirmPassword { get; set; } = string.Empty;
+    }
+}
