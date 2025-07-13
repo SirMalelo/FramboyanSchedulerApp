@@ -1,0 +1,22 @@
+@page "/profile"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<h3>Profile</h3>
+
+<button class="btn btn-danger" @onclick="GoToDelete">Delete My Account</button>
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-info">@Message</div>
+}
+
+@code {
+    private string? Message;
+
+    private void GoToDelete()
+    {
+        Navigation.NavigateTo("/confirm-delete");
+    }
+@inject IJSRuntime JS
+}

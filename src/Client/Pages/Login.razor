@@ -16,10 +16,14 @@
 <h3>Login</h3>
 
 
-@* Show error message if login fails *@
+@* Show error or success message *@
 @if (!string.IsNullOrEmpty(errorMessage))
 {
     <div class="alert alert-danger">@errorMessage</div>
+}
+@if (!string.IsNullOrEmpty(successMessage))
+{
+    <div class="alert alert-success">@successMessage</div>
 }
 
 
@@ -43,40 +47,40 @@
     // Model for login form data
     private LoginModel loginModel = new();
 
-    // Holds error message to display to user
+    // Holds error and success messages
     private string? errorMessage;
+    private string? successMessage;
 
     // Handles login form submission
     private async Task HandleLogin()
     {
         errorMessage = null;
+        successMessage = null;
         try
         {
-            // Send login data to API
             var response = await Http.PostAsJsonAsync("api/auth/login", loginModel);
             if (response.IsSuccessStatusCode)
             {
-                // Parse token from API response
                 var result = await response.Content.ReadFromJsonAsync<LoginResult>();
                 if (!string.IsNullOrEmpty(result?.Token))
                 {
-                    // Store token in localStorage
                     await JS.InvokeVoidAsync("localStorage.setItem", "authToken", result.Token);
-                    // Check if this is a new device (no 'hasLoggedIn' flag)
-                    var hasLoggedIn = await JS.InvokeAsync<string>("localStorage.getItem", "hasLoggedIn");
-                    if (string.IsNullOrEmpty(hasLoggedIn))
+                    // Only set profileFullName to email if not already set (so we don't overwrite real name)
+                    var existingName = await JS.InvokeAsync<string>("localStorage.getItem", "profileFullName");
+                    if (string.IsNullOrWhiteSpace(existingName))
                     {
-                        await JS.InvokeVoidAsync("localStorage.setItem", "hasLoggedIn", "true");
-                        // Redirect to home for new device
-                        Navigation.NavigateTo("/");
+                        await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", loginModel.Email);
+                    }
+                    successMessage = "Login successful!";
+                    var profileComplete = await JS.InvokeAsync<string>("localStorage.getItem", "profileComplete");
+                    if (string.IsNullOrEmpty(profileComplete))
+                    {
+                        Navigation.NavigateTo("/complete-profile");
                     }
                     else
                     {
-                        // Normal redirect after login
                         Navigation.NavigateTo("/");
                     }
-                    // Redirect to home page
-                    Navigation.NavigateTo("/");
                 }
                 else
                 {

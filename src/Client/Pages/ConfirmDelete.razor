@@ -1,0 +1,94 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@page "/confirm-delete"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h3>Delete Account</h3>
+
+@if (!showConfirm)
+{
+    <EditForm Model="deleteModel" OnValidSubmit="PromptConfirm">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-3">
+            <label>Email</label>
+            <InputText class="form-control" @bind-Value="deleteModel.Email" />
+        </div>
+        <div class="mb-3">
+            <label>Password</label>
+            <InputText class="form-control" @bind-Value="deleteModel.Password" type="password" />
+        </div>
+        <button class="btn btn-danger" type="submit">Continue</button>
+    </EditForm>
+}
+else
+{
+    <div class="alert alert-warning">Are you sure you want to delete your account? This action cannot be undone.</div>
+    <button class="btn btn-danger me-2" @onclick="DeleteAccount">Yes, Delete</button>
+    <button class="btn btn-secondary" @onclick="Cancel">No, Cancel</button>
+}
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-info">@Message</div>
+}
+
+@code {
+    private DeleteModel deleteModel = new();
+    private string? Message;
+    private bool showConfirm = false;
+
+    private void PromptConfirm()
+    {
+        showConfirm = true;
+    }
+
+    private async Task DeleteAccount()
+    {
+        Message = null;
+        try
+        {
+            var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+            var request = new HttpRequestMessage(HttpMethod.Delete, "api/auth/delete-me");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            // Send email/password in body for extra verification
+            var json = System.Text.Json.JsonSerializer.Serialize(deleteModel);
+            request.Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json");
+            var response = await Http.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                // Remove auth token and user info from localStorage
+                await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+                await JS.InvokeVoidAsync("localStorage.removeItem", "userEmail");
+                await JS.InvokeVoidAsync("localStorage.removeItem", "userName");
+                // Optionally clear all localStorage: await JS.InvokeVoidAsync("localStorage.clear");
+                Message = "Your account has been deleted. Redirecting to login...";
+                await Task.Delay(1500);
+                Navigation.NavigateTo("/login", true); // Force reload
+            }
+            else
+            {
+                Message = "Failed to delete account: " + await response.Content.ReadAsStringAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Message = $"Error: {ex.Message}";
+        }
+    }
+
+    private void Cancel()
+    {
+        Navigation.NavigateTo("/");
+    }
+
+    public class DeleteModel
+    {
+        [Required]
+        public string Email { get; set; } = string.Empty;
+        [Required]
+        public string Password { get; set; } = string.Empty;
+    }
+}

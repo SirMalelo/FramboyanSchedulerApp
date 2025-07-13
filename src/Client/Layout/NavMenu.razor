@@ -1,34 +1,31 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid">
-        <a class="navbar-brand" href="">
-            @if (!string.IsNullOrEmpty(userName))
-            {
-                @userName
-            }
-        </a>
-        <button title="Navigation menu" class="navbar-toggler" @onclick="ToggleNavMenu">
-            <span class="navbar-toggler-icon"></span>
-        </button>
+﻿<div class="sidebar">
+    <div class="sidebar-brand p-3">
+        @if (!string.IsNullOrEmpty(userName))
+        {
+            <span class="fw-bold text-white" style="font-size:1.2rem;">@userName</span>
+        }
     </div>
-</div>
-
-<div class="@NavMenuCssClass nav-scrollable" @onclick="ToggleNavMenu">
-    <nav class="nav flex-column">
+    <nav class="nav flex-column nav-scrollable" @onclick="ToggleNavMenu">
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
                 <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
             </NavLink>
         </div>
         <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="register">
-                        <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Create Login
-                    </NavLink>
+            <NavLink class="nav-link" href="register">
+                <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Create Login
+            </NavLink>
         </div>
-                <div class="nav-item px-3">
-                    <NavLink class="nav-link" href="login">
-                        <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login
-                    </NavLink>
-                </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="login">
+                <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login
+            </NavLink>
+        </div>
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="profile">
+                <span class="bi bi-person-circle-nav-menu" aria-hidden="true"></span> Profile
+            </NavLink>
+        </div>
     </nav>
 </div>
 
@@ -38,11 +35,82 @@
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
-    protected override void OnInitialized()
+    [Inject]
+    private IJSRuntime JS { get; set; }
+
+
+    [Inject]
+    private NavigationManager Navigation { get; set; }
+    private IDisposable? locationChangedHandler;
+
+    protected override async Task OnInitializedAsync()
     {
-        // Try to get the user's name from localStorage or authentication state
-        // For now, leave blank until login/profile is implemented
-        userName = null;
+        await LoadUserName();
+        locationChangedHandler = Navigation.RegisterLocationChangingHandler(OnLocationChanged);
+    }
+
+    private async ValueTask OnLocationChanged(LocationChangingContext context)
+    {
+        await LoadUserName();
+        StateHasChanged();
+    }
+
+    private async Task LoadUserName()
+    {
+        // Try to get auth token
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            userName = null;
+            await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
+            return;
+        }
+
+        try
+        {
+            var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/me");
+            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var client = Http ?? new HttpClient { BaseAddress = new Uri(Navigation.BaseUri) };
+            var response = await client.SendAsync(request);
+            if (response.IsSuccessStatusCode)
+            {
+                var json = await response.Content.ReadAsStringAsync();
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                if (doc.RootElement.TryGetProperty("userName", out var nameProp))
+                {
+                    userName = nameProp.GetString();
+                    await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", userName ?? "");
+                }
+                else if (doc.RootElement.TryGetProperty("email", out var emailProp))
+                {
+                    userName = emailProp.GetString();
+                    await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", userName ?? "");
+                }
+                else
+                {
+                    userName = null;
+                    await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
+                }
+            }
+            else
+            {
+                // Unauthorized or user not found
+                userName = null;
+                await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
+                await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+            }
+        }
+        catch
+        {
+            userName = null;
+            await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
+            await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
+        }
+    }
+
+    public void Dispose()
+    {
+        locationChangedHandler?.Dispose();
     }
 
     private void ToggleNavMenu()

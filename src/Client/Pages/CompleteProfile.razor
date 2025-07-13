@@ -1,0 +1,51 @@
+@using Microsoft.AspNetCore.Components.Forms
+@using System.ComponentModel.DataAnnotations
+@page "/complete-profile"
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h3>Complete Your Profile</h3>
+
+<EditForm Model="profileModel" OnValidSubmit="HandleSubmit">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="mb-3">
+        <label>Full Name</label>
+        <InputText class="form-control" @bind-Value="profileModel.FullName" />
+    </div>
+    <div class="mb-3">
+        <label>Date of Birth</label>
+        <InputDate class="form-control" @bind-Value="profileModel.DateOfBirth" />
+    </div>
+    <button class="btn btn-primary" type="submit">Save</button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(Message))
+{
+    <div class="alert alert-info">@Message</div>
+}
+
+@code {
+    private ProfileModel profileModel = new();
+    private string? Message;
+
+    private async Task HandleSubmit()
+    {
+        // Save profile info to localStorage (or send to API if needed)
+        await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", profileModel.FullName);
+        await JS.InvokeVoidAsync("localStorage.setItem", "profileDateOfBirth", profileModel.DateOfBirth.ToString("yyyy-MM-dd"));
+        await JS.InvokeVoidAsync("localStorage.setItem", "profileComplete", "true");
+        Message = "Profile saved! Redirecting...";
+        await Task.Delay(1500);
+        Navigation.NavigateTo("/");
+    }
+
+    public class ProfileModel
+    {
+        [Required]
+        public string FullName { get; set; } = string.Empty;
+        [Required]
+        public DateTime DateOfBirth { get; set; } = DateTime.Today;
+    }
+}

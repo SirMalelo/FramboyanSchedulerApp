@@ -33,7 +33,7 @@ builder.Services.AddIdentity<ApplicationUser, IdentityRole>(options =>
     .AddDefaultTokenProviders();
 
 // JWT authentication
-var key = Encoding.UTF8.GetBytes("super_secret_jwt_key_123!");
+var key = Encoding.UTF8.GetBytes(builder.Configuration["JwtKey"] ?? "super_secret_jwt_key_123!");
 builder.Services.AddAuthentication(options =>
 {
     options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
