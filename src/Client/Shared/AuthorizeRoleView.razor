@@ -1,0 +1,17 @@
+@using Microsoft.AspNetCore.Components.Authorization
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@code {
+    [Parameter] public string Role { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    private bool isInRole;
+    protected override async Task OnParametersSetAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var user = authState.User;
+        isInRole = user.Identity?.IsAuthenticated == true && user.IsInRole(Role);
+    }
+}
+@if (isInRole)
+{
+    @ChildContent
+}

@@ -1,4 +1,7 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+@using Client.Shared
 @inject HttpClient Http
 <div class="sidebar">
     <div class="sidebar-brand p-3">
@@ -29,6 +32,35 @@
                 <span class="bi bi-person-circle-nav-menu" aria-hidden="true"></span> Profile
             </NavLink>
         </div>
+        <AuthorizeRoleView Role="Owner">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="owner/site-customization">
+                    <span class="bi bi-palette"></span> Site Customization
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="owner/membership-types">
+                    <span class="bi bi-card-list"></span> Membership Types
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="owner/payment-methods">
+                    <span class="bi bi-credit-card"></span> Payment Methods
+                </NavLink>
+            </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="owner/assign-membership">
+                    <span class="bi bi-person-check"></span> Assign Membership
+                </NavLink>
+            </div>
+        </AuthorizeRoleView>
+        <AuthorizeRoleView Role="Student">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="student/memberships">
+                    <span class="bi bi-people"></span> My Memberships
+                </NavLink>
+            </div>
+        </AuthorizeRoleView>
     </nav>
 </div>
 

@@ -1,0 +1,82 @@
+@page "/student/memberships"
+@using Microsoft.AspNetCore.Components.Forms
+@using Client.Models
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Forms
+
+<h3>My Memberships</h3>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Type</th>
+            <th>Start Date</th>
+            <th>End Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var m in memberships)
+        {
+            <tr>
+                <td>@m.MembershipTypeName</td>
+                <td>@m.StartDate.ToShortDateString()</td>
+                <td>@(m.EndDate?.ToShortDateString() ?? "-")</td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<h4>Apply for a New Membership</h4>
+<EditForm Model="applyModel" OnValidSubmit="ApplyMembership">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="mb-2">
+        <label>Membership Type</label>
+        <InputSelect class="form-select" @bind-Value="applyModel.MembershipTypeId">
+            <option value="">-- Select Membership Type --</option>
+            @foreach (var type in membershipTypes)
+            {
+                <option value="@type.Id">@type.Name</option>
+            }
+        </InputSelect>
+    </div>
+    <button class="btn btn-success" type="submit">Apply</button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-3">@statusMessage</div>
+}
+
+@code {
+    private List<Membership> memberships = new();
+    private List<MembershipType> membershipTypes = new();
+    private ApplyModel applyModel = new();
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        memberships = await Http.GetFromJsonAsync<List<Membership>>("api/membership/my-memberships") ?? new();
+        membershipTypes = await Http.GetFromJsonAsync<List<MembershipType>>("api/membership/types") ?? new();
+    }
+
+    private async Task ApplyMembership()
+    {
+        statusMessage = null;
+        var resp = await Http.PostAsJsonAsync("api/membership/apply", applyModel);
+        if (resp.IsSuccessStatusCode)
+        {
+            statusMessage = "Membership application submitted.";
+            memberships = await Http.GetFromJsonAsync<List<Membership>>("api/membership/my-memberships") ?? new();
+        }
+        else
+        {
+            statusMessage = "Failed to apply for membership.";
+        }
+    }
+
+    public class ApplyModel
+    {
+        public int MembershipTypeId { get; set; }
+    }
+}

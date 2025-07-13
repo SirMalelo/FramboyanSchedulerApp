@@ -1,0 +1,130 @@
+@page "/owner/payment-methods"
+@using Client.Models
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+
+<h3>Manage Payment Methods</h3>
+
+<button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add Payment Method</button>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+            <th>Active</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var method in paymentMethods)
+        {
+            <tr>
+                <td>@method.Name</td>
+                <td>@method.Description</td>
+                <td>@(method.IsActive ? "Yes" : "No")</td>
+                <td>
+                    <button class="btn btn-sm btn-secondary me-1" @onclick="() => EditMethod(method)">Edit</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteMethod(method.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (showForm)
+{
+    <EditForm Model="editMethod" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-2">
+            <label>Name</label>
+            <InputText class="form-control" @bind-Value="editMethod.Name" />
+        </div>
+        <div class="mb-2">
+            <label>Description</label>
+            <InputText class="form-control" @bind-Value="editMethod.Description" />
+        </div>
+        <div class="mb-2">
+            <label>Active</label>
+            <InputCheckbox class="form-check-input" @bind-Value="editMethod.IsActive" />
+        </div>
+        <button class="btn btn-success me-2" type="submit">@((editMethod.Id == 0) ? "Add" : "Update")</button>
+        <button class="btn btn-secondary" type="button" @onclick="HideForm">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private List<PaymentMethod> paymentMethods = new();
+    private PaymentMethod editMethod = new();
+    private bool showForm = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMethods();
+    }
+
+    private async Task LoadMethods()
+    {
+        paymentMethods = await Http.GetFromJsonAsync<List<PaymentMethod>>("api/membership/payment-methods") ?? new();
+    }
+
+    private void ShowAddForm()
+    {
+        editMethod = new PaymentMethod();
+        showForm = true;
+    }
+
+    private void EditMethod(PaymentMethod method)
+    {
+        editMethod = new PaymentMethod
+        {
+            Id = method.Id,
+            Name = method.Name,
+            Description = method.Description,
+            IsActive = method.IsActive
+        };
+        showForm = true;
+    }
+
+    private void HideForm()
+    {
+        showForm = false;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (editMethod.Id == 0)
+        {
+            var resp = await Http.PostAsJsonAsync("api/membership/payment-method", editMethod);
+            if (resp.IsSuccessStatusCode)
+            {
+                await LoadMethods();
+                showForm = false;
+            }
+        }
+        else
+        {
+            var resp = await Http.PutAsJsonAsync($"api/membership/payment-method/{editMethod.Id}", editMethod);
+            if (resp.IsSuccessStatusCode)
+            {
+                await LoadMethods();
+                showForm = false;
+            }
+        }
+    }
+
+    private async Task DeleteMethod(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Delete payment method {id}?") == false)
+            return;
+        var resp = await Http.DeleteAsync($"api/membership/payment-method/{id}");
+        if (resp.IsSuccessStatusCode)
+        {
+            await LoadMethods();
+        }
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+}

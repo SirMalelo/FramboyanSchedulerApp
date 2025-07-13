@@ -1,0 +1,121 @@
+@page "/owner/site-customization"
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Forms
+
+
+<h3>Site Customization</h3>
+
+<div class="mb-3">
+    <label>Share Signup Link:</label>
+    <div class="input-group mb-2">
+        <input class="form-control" value="@signupUrl" readonly />
+        <button class="btn btn-outline-secondary" @onclick="CopySignupUrl">Copy</button>
+    </div>
+    @if (copied)
+    {
+        <span class="text-success">Copied!</span>
+    }
+    <div class="mt-2">
+        <label>Share via:</label>
+        <div class="d-flex gap-2 flex-wrap">
+            <a class="btn btn-outline-primary" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=@Uri.EscapeDataString(signupUrl)"><i class="bi bi-facebook"></i> Facebook</a>
+            <a class="btn btn-outline-success" target="_blank" href="https://wa.me/?text=@Uri.EscapeDataString($"Sign up for our studio: {signupUrl}")"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+            <a class="btn btn-outline-info" target="_blank" href="https://twitter.com/intent/tweet?url=@Uri.EscapeDataString(signupUrl)&text=Sign%20up%20for%20our%20studio!"><i class="bi bi-twitter-x"></i> X/Twitter</a>
+            <a class="btn btn-outline-danger" target="_blank" href="https://www.instagram.com/?url=@Uri.EscapeDataString(signupUrl)"><i class="bi bi-instagram"></i> Instagram</a>
+            <a class="btn btn-outline-primary" style="border-color:#0a66c2; color:#0a66c2;" target="_blank" href="https://www.linkedin.com/sharing/share-offsite/?url=@Uri.EscapeDataString(signupUrl)"><i class="bi bi-linkedin"></i> LinkedIn</a>
+            <a class="btn btn-outline-secondary" target="_blank" href="mailto:?subject=Join%20Our%20Studio&body=@Uri.EscapeDataString($"Sign up here: {signupUrl}")"><i class="bi bi-envelope"></i> Email</a>
+        </div>
+    </div>
+    <div class="mt-3">
+        <label>QR Code:</label>
+        <div>
+            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=@Uri.EscapeDataString(signupUrl)" alt="QR Code" />
+            <a class="btn btn-outline-dark ms-2" href="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=@Uri.EscapeDataString(signupUrl)" download="signup-qr.png">Download QR Code</a>
+        </div>
+    </div>
+</div>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info">@statusMessage</div>
+}
+
+<EditForm Model="customization" OnValidSubmit="SaveCustomization">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="mb-2">
+        <label>Custom Welcome Text</label>
+        <InputText class="form-control" @bind-Value="customization.WelcomeText" />
+    </div>
+    <div class="mb-2">
+        <label>Background Image</label>
+        <InputFile OnChange="OnFileChange" />
+        @if (!string.IsNullOrEmpty(customization.BackgroundImageUrl))
+        {
+            <div class="mt-2">
+                <img src="@customization.BackgroundImageUrl" alt="Background" style="max-width:300px;max-height:150px;" />
+            </div>
+        }
+    </div>
+    <div class="mb-2">
+        <label>Studio Website Link (optional)</label>
+        <InputText class="form-control" @bind-Value="customization.StudioWebsiteUrl" placeholder="https://yourstudio.com" />
+    </div>
+    <button class="btn btn-success" type="submit">Save</button>
+</EditForm>
+
+@code {
+    private SiteCustomization customization = new();
+    private string signupUrl = string.Empty;
+    private bool copied = false;
+    private string? statusMessage;
+    private IBrowserFile? uploadedFile;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await Http.GetFromJsonAsync<SiteCustomization>("api/site/customization");
+        if (result != null)
+            customization = result;
+        signupUrl = Navigation.BaseUri.TrimEnd('/') + "/register";
+    }
+    [Inject] NavigationManager Navigation { get; set; } = default!;
+    [Inject] IJSRuntime JS { get; set; } = default!;
+
+    private async Task CopySignupUrl()
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", signupUrl);
+        copied = true;
+        await Task.Delay(1500);
+        copied = false;
+        StateHasChanged();
+    }
+
+    private async Task SaveCustomization()
+    {
+        statusMessage = null;
+        if (uploadedFile != null)
+        {
+            var content = new MultipartFormDataContent();
+            content.Add(new StreamContent(uploadedFile.OpenReadStream(5 * 1024 * 1024)), "file", uploadedFile.Name);
+            var uploadResp = await Http.PostAsync("api/site/customization/upload-bg", content);
+            if (uploadResp.IsSuccessStatusCode)
+            {
+                customization.BackgroundImageUrl = await uploadResp.Content.ReadAsStringAsync();
+            }
+        }
+        var resp = await Http.PostAsJsonAsync("api/site/customization", customization);
+        statusMessage = resp.IsSuccessStatusCode ? "Customization saved!" : "Failed to save.";
+    }
+
+    private void OnFileChange(InputFileChangeEventArgs e)
+    {
+        uploadedFile = e.File;
+    }
+
+    public class SiteCustomization
+    {
+        public string WelcomeText { get; set; } = string.Empty;
+        public string BackgroundImageUrl { get; set; } = string.Empty;
+        public string StudioWebsiteUrl { get; set; } = string.Empty;
+    }
+}

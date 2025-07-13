@@ -1,5 +1,53 @@
 @inherits LayoutComponentBase
 
-<div class="main px-4">
+@inject HttpClient Http
+@code {
+    private string? bgUrl = null;
+    private string? welcomeText = null;
+    private string? studioUrl = null;
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var result = await Http.GetFromJsonAsync<SiteCustomization>("api/site/customization");
+            if (result != null)
+            {
+                bgUrl = result.BackgroundImageUrl ?? string.Empty;
+                welcomeText = result.WelcomeText ?? string.Empty;
+                studioUrl = result.StudioWebsiteUrl ?? string.Empty;
+            }
+            else
+            {
+                bgUrl = string.Empty;
+                welcomeText = string.Empty;
+                studioUrl = string.Empty;
+            }
+        }
+        catch
+        {
+            bgUrl = string.Empty;
+            welcomeText = string.Empty;
+            studioUrl = string.Empty;
+        }
+    }
+    public class SiteCustomization
+    {
+        public string WelcomeText { get; set; } = string.Empty;
+        public string BackgroundImageUrl { get; set; } = string.Empty;
+        public string StudioWebsiteUrl { get; set; } = string.Empty;
+    }
+}
+
+<div class="main px-4" style="@(string.IsNullOrEmpty(bgUrl) ? null : $"background: url('{bgUrl}') no-repeat center center fixed; background-size: cover;")">
+  @if (!string.IsNullOrWhiteSpace(welcomeText))
+  {
+      <div class="alert alert-primary text-center">@welcomeText</div>
+  }
+  @if (!string.IsNullOrWhiteSpace(studioUrl))
+  {
+      <div class="text-center mb-3">
+          <a class="btn btn-outline-info" href="@studioUrl" target="_blank">Visit Studio Website</a>
+      </div>
+  }
   @Body
 </div>

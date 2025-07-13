@@ -11,5 +11,8 @@ namespace FramboyanSchedulerApi.Data
 
         public DbSet<ClassModel> Classes { get; set; }
         public DbSet<Attendance> Attendances { get; set; }
+        public DbSet<MembershipType> MembershipTypes { get; set; }
+        public DbSet<Membership> Memberships { get; set; }
+        public DbSet<PaymentMethod> PaymentMethods { get; set; }
     }
 }

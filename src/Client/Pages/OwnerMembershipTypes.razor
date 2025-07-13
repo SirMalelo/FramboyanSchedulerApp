@@ -1,0 +1,145 @@
+
+@page "/owner/membership-types"
+@using Client.Models
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+
+<h3>Manage Membership Types</h3>
+
+<button class="btn btn-primary mb-2" @onclick="ShowAddForm">Add Membership Type</button>
+
+<table class="table table-striped">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Class Count</th>
+            <th>Duration (days)</th>
+            <th>Description</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var type in membershipTypes)
+        {
+            <tr>
+                <td>@type.Name</td>
+                <td>@type.Price</td>
+                <td>@(type.ClassCount?.ToString() ?? "-")</td>
+                <td>@(type.DurationDays?.ToString() ?? "-")</td>
+                <td>@type.Description</td>
+                <td>
+                    <button class="btn btn-sm btn-secondary me-1" @onclick="() => EditType(type)">Edit</button>
+                    <button class="btn btn-sm btn-danger" @onclick="() => DeleteType(type.Id)">Delete</button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+@if (showForm)
+{
+    <EditForm Model="editType" OnValidSubmit="HandleValidSubmit">
+        <DataAnnotationsValidator />
+        <ValidationSummary />
+        <div class="mb-2">
+            <label>Name</label>
+            <InputText class="form-control" @bind-Value="editType.Name" />
+        </div>
+        <div class="mb-2">
+            <label>Price</label>
+            <InputNumber class="form-control" @bind-Value="editType.Price" />
+        </div>
+        <div class="mb-2">
+            <label>Class Count</label>
+            <InputNumber class="form-control" @bind-Value="editType.ClassCount" />
+        </div>
+        <div class="mb-2">
+            <label>Duration (days)</label>
+            <InputNumber class="form-control" @bind-Value="editType.DurationDays" />
+        </div>
+        <div class="mb-2">
+            <label>Description</label>
+            <InputText class="form-control" @bind-Value="editType.Description" />
+        </div>
+        <button class="btn btn-success me-2" type="submit">@((editType.Id == 0) ? "Add" : "Update")</button>
+        <button class="btn btn-secondary" type="button" @onclick="HideForm">Cancel</button>
+    </EditForm>
+}
+
+@code {
+    private List<MembershipType> membershipTypes = new();
+    private MembershipType editType = new();
+    private bool showForm = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadTypes();
+    }
+
+    private async Task LoadTypes()
+    {
+        membershipTypes = await Http.GetFromJsonAsync<List<MembershipType>>("api/membership/types") ?? new();
+    }
+
+    private void ShowAddForm()
+    {
+        editType = new MembershipType();
+        showForm = true;
+    }
+
+    private void EditType(MembershipType type)
+    {
+        editType = new MembershipType
+        {
+            Id = type.Id,
+            Name = type.Name,
+            Price = type.Price,
+            ClassCount = type.ClassCount,
+            DurationDays = type.DurationDays,
+            Description = type.Description
+        };
+        showForm = true;
+    }
+
+    private void HideForm()
+    {
+        showForm = false;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        if (editType.Id == 0)
+        {
+            var resp = await Http.PostAsJsonAsync("api/membership/create-type", editType);
+            if (resp.IsSuccessStatusCode)
+            {
+                await LoadTypes();
+                showForm = false;
+            }
+        }
+        else
+        {
+            var resp = await Http.PutAsJsonAsync($"api/membership/edit-type/{editType.Id}", editType);
+            if (resp.IsSuccessStatusCode)
+            {
+                await LoadTypes();
+                showForm = false;
+            }
+        }
+    }
+
+    private async Task DeleteType(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", $"Delete membership type {id}?") == false)
+            return;
+        var resp = await Http.DeleteAsync($"api/membership/delete-type/{id}");
+        if (resp.IsSuccessStatusCode)
+        {
+            await LoadTypes();
+        }
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+}

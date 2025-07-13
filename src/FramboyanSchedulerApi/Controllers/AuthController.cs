@@ -36,6 +36,17 @@ namespace FramboyanSchedulerApi.Controllers
 
             if (result.Succeeded)
             {
+                // Determine if this is the first user (Owner)
+                var users = _userManager.Users.ToList();
+                if (users.Count == 1)
+                {
+                    await _userManager.AddToRoleAsync(user, "Owner");
+                }
+                else
+                {
+                    await _userManager.AddToRoleAsync(user, "Student");
+                }
+
                 try
                 {
                     var smtpHost = _config["Smtp:Host"] ?? Environment.GetEnvironmentVariable("SMTP_HOST");
@@ -84,11 +95,16 @@ namespace FramboyanSchedulerApi.Controllers
             if (!result.Succeeded)
                 return Unauthorized("Invalid email or password.");
 
-            var claims = new[]
+            var userRoles = await _userManager.GetRolesAsync(user);
+            var claims = new List<System.Security.Claims.Claim>
             {
                 new System.Security.Claims.Claim(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub, user.Id),
                 new System.Security.Claims.Claim(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Email, user.Email ?? string.Empty)
             };
+            foreach (var role in userRoles)
+            {
+                claims.Add(new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.Role, role));
+            }
             var key = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(System.Text.Encoding.UTF8.GetBytes(_config["JwtKey"] ?? "super_secret_jwt_key_123!"));
             var creds = new Microsoft.IdentityModel.Tokens.SigningCredentials(key, Microsoft.IdentityModel.Tokens.SecurityAlgorithms.HmacSha256);
             var token = new System.IdentityModel.Tokens.Jwt.JwtSecurityToken(

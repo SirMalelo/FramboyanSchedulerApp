@@ -1,0 +1,70 @@
+@page "/owner/assign-membership"
+@using Client.Models
+@inject HttpClient Http
+@using Microsoft.AspNetCore.Components.Forms
+
+<h3>Assign Memberships to Students</h3>
+
+<EditForm Model="assignment" OnValidSubmit="HandleAssign">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+    <div class="mb-2">
+        <label>Student</label>
+        <InputSelect class="form-select" @bind-Value="assignment.UserId">
+            <option value="">-- Select Student --</option>
+            @foreach (var student in students)
+            {
+                <option value="@student.Id">@student.FullName (@student.Email)</option>
+            }
+        </InputSelect>
+    </div>
+    <div class="mb-2">
+        <label>Membership Type</label>
+        <InputSelect class="form-select" @bind-Value="assignment.MembershipTypeId">
+            <option value="">-- Select Membership Type --</option>
+            @foreach (var type in membershipTypes)
+            {
+                <option value="@type.Id">@type.Name</option>
+            }
+        </InputSelect>
+    </div>
+    <button class="btn btn-success" type="submit">Assign Membership</button>
+</EditForm>
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-3">@statusMessage</div>
+}
+
+@code {
+    private List<ApplicationUserBasic> students = new();
+    private List<MembershipType> membershipTypes = new();
+    private AssignmentRequest assignment = new();
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        students = await Http.GetFromJsonAsync<List<ApplicationUserBasic>>("api/admin/students") ?? new();
+        membershipTypes = await Http.GetFromJsonAsync<List<MembershipType>>("api/membership/types") ?? new();
+    }
+
+    private async Task HandleAssign()
+    {
+        statusMessage = null;
+        var resp = await Http.PostAsJsonAsync("api/membership/assign", assignment);
+        if (resp.IsSuccessStatusCode)
+        {
+            statusMessage = "Membership assigned and email sent (if user has email).";
+        }
+        else
+        {
+            statusMessage = "Failed to assign membership.";
+        }
+    }
+
+    public class AssignmentRequest
+    {
+        public string UserId { get; set; } = string.Empty;
+        public int MembershipTypeId { get; set; }
+    }
+}

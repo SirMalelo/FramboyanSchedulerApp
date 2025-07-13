@@ -8,6 +8,9 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Register email service (replace with real implementation for production)
+builder.Services.AddScoped<FramboyanSchedulerApi.Services.IEmailService, FramboyanSchedulerApi.Services.FakeEmailService>();
+
 // Enable CORS for development
 builder.Services.AddCors(options =>
 {
@@ -57,11 +60,14 @@ builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
 
-// Auto-migrate database on startup
+
+// Auto-migrate database and seed roles on startup
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<AuthDbContext>();
     db.Database.Migrate();
+    var roleTask = FramboyanSchedulerApi.Data.RoleSeeder.SeedRolesAsync(scope.ServiceProvider);
+    roleTask.Wait();
 }
 
 app.UseSwagger();
