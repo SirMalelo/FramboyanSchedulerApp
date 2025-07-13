@@ -4,6 +4,6 @@ namespace FramboyanSchedulerApi.Models
 {
     public class ApplicationUser : IdentityUser
     {
-        // Add custom fields if needed later
+        public string? FullName { get; set; }
     }
 }

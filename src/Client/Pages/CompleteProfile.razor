@@ -32,13 +32,51 @@
 
     private async Task HandleSubmit()
     {
-        // Save profile info to localStorage (or send to API if needed)
-        await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", profileModel.FullName);
-        await JS.InvokeVoidAsync("localStorage.setItem", "profileDateOfBirth", profileModel.DateOfBirth.ToString("yyyy-MM-dd"));
-        await JS.InvokeVoidAsync("localStorage.setItem", "profileComplete", "true");
-        Message = "Profile saved! Redirecting...";
-        await Task.Delay(1500);
-        Navigation.NavigateTo("/");
+        // Send full name to backend
+        var token = await JS.InvokeAsync<string>("localStorage.getItem", "authToken");
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            Message = "You are not logged in. Please log in again.";
+            await Task.Delay(1500);
+            Navigation.NavigateTo("/login");
+            return;
+        }
+        var request = new HttpRequestMessage(HttpMethod.Post, "api/auth/update-profile")
+        {
+            Content = JsonContent.Create(new { FullName = profileModel.FullName })
+        };
+        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+        var response = await Http.SendAsync(request);
+        if (response.IsSuccessStatusCode)
+        {
+            // Wait for backend to commit, then fetch updated user info
+            await Task.Delay(200); // Small delay to ensure DB commit
+            var meRequest = new HttpRequestMessage(HttpMethod.Get, "api/auth/me");
+            meRequest.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
+            var meResponse = await Http.SendAsync(meRequest);
+            if (meResponse.IsSuccessStatusCode)
+            {
+                var json = await meResponse.Content.ReadAsStringAsync();
+                var doc = System.Text.Json.JsonDocument.Parse(json);
+                string? fullName = null;
+                if (doc.RootElement.TryGetProperty("fullName", out var fullNameProp))
+                    fullName = fullNameProp.GetString();
+                if (!string.IsNullOrWhiteSpace(fullName))
+                {
+                    await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", fullName);
+                }
+            }
+            await JS.InvokeVoidAsync("localStorage.setItem", "profileDateOfBirth", profileModel.DateOfBirth.ToString("yyyy-MM-dd"));
+            await JS.InvokeVoidAsync("localStorage.setItem", "profileComplete", "true");
+            Message = "Profile saved! Redirecting...";
+            await Task.Delay(1000); // Ensure backend commit before reload
+            // Force a full browser reload to guarantee NavMenu updates
+            await JS.InvokeVoidAsync("eval", "window.location.href = '/' ");
+        }
+        else
+        {
+            Message = "Failed to update profile. Please try again.";
+        }
     }
 
     public class ProfileModel

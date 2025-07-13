@@ -65,21 +65,28 @@
                 if (!string.IsNullOrEmpty(result?.Token))
                 {
                     await JS.InvokeVoidAsync("localStorage.setItem", "authToken", result.Token);
-                    // Only set profileFullName to email if not already set (so we don't overwrite real name)
-                    var existingName = await JS.InvokeAsync<string>("localStorage.getItem", "profileFullName");
-                    if (string.IsNullOrWhiteSpace(existingName))
-                    {
-                        await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", loginModel.Email);
-                    }
                     successMessage = "Login successful!";
-                    var profileComplete = await JS.InvokeAsync<string>("localStorage.getItem", "profileComplete");
-                    if (string.IsNullOrEmpty(profileComplete))
+                    // Check if full name is set by calling /api/auth/me
+                    var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/me");
+                    request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", result.Token);
+                    var meResponse = await Http.SendAsync(request);
+                    if (meResponse.IsSuccessStatusCode)
                     {
-                        Navigation.NavigateTo("/complete-profile");
+                        var json = await meResponse.Content.ReadAsStringAsync();
+                        var doc = System.Text.Json.JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("fullName", out var fullNameProp) && !string.IsNullOrWhiteSpace(fullNameProp.GetString()))
+                        {
+                            Navigation.NavigateTo("/");
+                        }
+                        else
+                        {
+                            Navigation.NavigateTo("/complete-profile");
+                        }
                     }
                     else
                     {
-                        Navigation.NavigateTo("/");
+                        // If unable to fetch profile, force profile completion
+                        Navigation.NavigateTo("/complete-profile");
                     }
                 }
                 else

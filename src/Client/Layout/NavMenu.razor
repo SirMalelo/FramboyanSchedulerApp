@@ -1,9 +1,12 @@
-﻿<div class="sidebar">
+﻿@using Microsoft.AspNetCore.Components.Routing
+@inject HttpClient Http
+<div class="sidebar">
     <div class="sidebar-brand p-3">
         @if (!string.IsNullOrEmpty(userName))
         {
             <span class="fw-bold text-white" style="font-size:1.2rem;">@userName</span>
         }
+
     </div>
     <nav class="nav flex-column nav-scrollable" @onclick="ToggleNavMenu">
         <div class="nav-item px-3">
@@ -32,15 +35,16 @@
 @code {
     private bool collapseNavMenu = true;
     private string? userName;
+    private string? debugMeJson;
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
     [Inject]
-    private IJSRuntime JS { get; set; }
+    private IJSRuntime JS { get; set; } = default!;
 
 
     [Inject]
-    private NavigationManager Navigation { get; set; }
+    private NavigationManager Navigation { get; set; } = default!;
     private IDisposable? locationChangedHandler;
 
     protected override async Task OnInitializedAsync()
@@ -75,15 +79,11 @@
             if (response.IsSuccessStatusCode)
             {
                 var json = await response.Content.ReadAsStringAsync();
+                debugMeJson = json; // DEBUG: show in UI
                 var doc = System.Text.Json.JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("userName", out var nameProp))
+                if (doc.RootElement.TryGetProperty("fullName", out var fullNameProp) && !string.IsNullOrWhiteSpace(fullNameProp.GetString()))
                 {
-                    userName = nameProp.GetString();
-                    await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", userName ?? "");
-                }
-                else if (doc.RootElement.TryGetProperty("email", out var emailProp))
-                {
-                    userName = emailProp.GetString();
+                    userName = fullNameProp.GetString();
                     await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", userName ?? "");
                 }
                 else
@@ -94,17 +94,16 @@
             }
             else
             {
-                // Unauthorized or user not found
+                debugMeJson = $"ERROR: Status {response.StatusCode}";
                 userName = null;
                 await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
-                await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
             }
         }
-        catch
+        catch (Exception ex)
         {
+            debugMeJson = $"EXCEPTION: {ex.Message}";
             userName = null;
             await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
-            await JS.InvokeVoidAsync("localStorage.removeItem", "authToken");
         }
     }
 

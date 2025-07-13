@@ -50,6 +50,7 @@ else if (!string.IsNullOrEmpty(errorMessage))
 
 @inject HttpClient Http
 @inject NavigationManager Navigation
+@inject IJSRuntime JS
 
 @code {
     // Model for registration form data
@@ -71,8 +72,9 @@ else if (!string.IsNullOrEmpty(errorMessage))
         var response = await Http.PostAsJsonAsync("api/auth/register", registerModel);
         if (response.IsSuccessStatusCode)
         {
-            successMessage = "Registration complete! Redirecting to login...";
-            await Task.Delay(1500);
+            successMessage = "Registration complete! You may now log in.";
+            StateHasChanged();
+            await Task.Delay(2000); // Show message for 2 seconds
             Navigation.NavigateTo("/login");
         }
         else

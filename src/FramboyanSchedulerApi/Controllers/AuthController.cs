@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
-using FramboyanSchedulerApi.Models;
 using Microsoft.AspNetCore.Identity;
-using System.Threading.Tasks;
+using FramboyanSchedulerApi.Models;
 using System.Net.Mail;
 using System.Net;
+using System.Threading.Tasks;
 
 namespace FramboyanSchedulerApi.Controllers
 {
@@ -36,10 +36,8 @@ namespace FramboyanSchedulerApi.Controllers
 
             if (result.Succeeded)
             {
-                // Send congratulatory email
                 try
                 {
-                    // Get SMTP settings from configuration (appsettings or environment variables)
                     var smtpHost = _config["Smtp:Host"] ?? Environment.GetEnvironmentVariable("SMTP_HOST");
                     var smtpPort = int.TryParse(_config["Smtp:Port"], out var portVal) ? portVal : int.TryParse(Environment.GetEnvironmentVariable("SMTP_PORT"), out var envPort) ? envPort : 587;
                     var smtpUser = _config["Smtp:User"] ?? Environment.GetEnvironmentVariable("SMTP_USER");
@@ -65,13 +63,11 @@ namespace FramboyanSchedulerApi.Controllers
                 }
                 catch (Exception ex)
                 {
-                    // Log or handle email sending failure, but do not block registration
                     Console.WriteLine($"Email send failed: {ex.Message}");
                 }
                 return Ok();
             }
-            else
-                return BadRequest(result.Errors);
+            return BadRequest(result.Errors);
         }
 
         [HttpPost("login")]
@@ -88,7 +84,6 @@ namespace FramboyanSchedulerApi.Controllers
             if (!result.Succeeded)
                 return Unauthorized("Invalid email or password.");
 
-            // Create JWT token
             var claims = new[]
             {
                 new System.Security.Claims.Claim(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Sub, user.Id),
@@ -111,13 +106,14 @@ namespace FramboyanSchedulerApi.Controllers
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized("User not authenticated.");
+
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound("User not found.");
 
-            // Extra verification: check email and password
             if (!string.Equals(user.Email, model.Email, StringComparison.OrdinalIgnoreCase))
                 return BadRequest("Email does not match your account.");
+
             var passwordValid = await _userManager.CheckPasswordAsync(user, model.Password);
             if (!passwordValid)
                 return BadRequest("Password is incorrect.");
@@ -125,8 +121,7 @@ namespace FramboyanSchedulerApi.Controllers
             var result = await _userManager.DeleteAsync(user);
             if (result.Succeeded)
                 return Ok("Account deleted successfully.");
-            else
-                return BadRequest(result.Errors);
+            return BadRequest(result.Errors);
         }
 
         public class DeleteMeModel
@@ -155,15 +150,42 @@ namespace FramboyanSchedulerApi.Controllers
             var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
             if (string.IsNullOrEmpty(userId))
                 return Unauthorized();
+
             var user = await _userManager.FindByIdAsync(userId);
             if (user == null)
                 return NotFound();
+
             return Ok(new {
                 user.Email,
-                user.UserName
-                // Uncomment the next line if you have a FullName property:
-                //, user.FullName
+                user.UserName,
+                user.FullName
             });
+        }
+
+        [HttpPost("update-profile")]
+        [Microsoft.AspNetCore.Authorization.Authorize]
+        public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileModel model)
+        {
+            var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+            if (string.IsNullOrEmpty(userId))
+                return Unauthorized();
+
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user == null)
+                return NotFound();
+
+            if (!string.IsNullOrWhiteSpace(model.FullName))
+                user.FullName = model.FullName;
+
+            var result = await _userManager.UpdateAsync(user);
+            if (result.Succeeded)
+                return Ok();
+            return BadRequest(result.Errors);
+        }
+
+        public class UpdateProfileModel
+        {
+            public string? FullName { get; set; }
         }
     }
 }
