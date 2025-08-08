@@ -51,14 +51,38 @@
     private async Task HandleAssign()
     {
         statusMessage = null;
-        var resp = await Http.PostAsJsonAsync("api/membership/assign", assignment);
-        if (resp.IsSuccessStatusCode)
+        
+        // Client-side validation
+        if (string.IsNullOrEmpty(assignment.UserId))
         {
-            statusMessage = "Membership assigned and email sent (if user has email).";
+            statusMessage = "Please select a student.";
+            return;
         }
-        else
+        
+        if (assignment.MembershipTypeId <= 0)
         {
-            statusMessage = "Failed to assign membership.";
+            statusMessage = "Please select a membership type.";
+            return;
+        }
+
+        try
+        {
+            var resp = await Http.PostAsJsonAsync("api/membership/assign", assignment);
+            if (resp.IsSuccessStatusCode)
+            {
+                statusMessage = "Membership assigned successfully!";
+                assignment = new(); // Reset form
+            }
+            else
+            {
+                var errorContent = await resp.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to assign membership: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
         }
     }
 

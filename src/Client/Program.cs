@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components.Authorization;
 using Client.Auth;
+using Client.Services;
 using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Client; // App.razor namespace
@@ -13,5 +14,6 @@ builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStatePr
 builder.Services.AddScoped(sp =>
     new HttpClient { BaseAddress = new Uri("http://localhost:5034") }
 );
+builder.Services.AddScoped<AuthenticatedHttpClient>();
 
 await builder.Build().RunAsync();

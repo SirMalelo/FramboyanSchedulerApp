@@ -53,7 +53,20 @@
                     <span class="bi bi-person-check"></span> Assign Membership
                 </NavLink>
             </div>
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="owner/class-management">
+                    <span class="bi bi-calendar-event"></span> Manage Classes
+                </NavLink>
+            </div>
         </AuthorizeRoleView>
+        
+        <!-- Classes available to all authenticated users -->
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="classes/calendar">
+                <span class="bi bi-calendar3"></span> Class Calendar
+            </NavLink>
+        </div>
+        
         <AuthorizeRoleView Role="Student">
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="student/memberships">

@@ -1,0 +1,337 @@
+@page "/classes/calendar"
+@using Client.Models
+@using Client.Extensions
+@using Client.Services
+@inject AuthenticatedHttpClient Http
+@using Microsoft.AspNetCore.Components
+
+<h3>Class Calendar</h3>
+
+<div class="row mb-3">
+    <div class="col-md-6">
+        <button class="btn btn-outline-primary me-2 @(currentView == "list" ? "active" : "")" @onclick="@(() => SetView("list"))">
+            List View
+        </button>
+        <button class="btn btn-outline-primary @(currentView == "calendar" ? "active" : "")" @onclick="@(() => SetView("calendar"))">
+            Calendar View
+        </button>
+    </div>
+    <div class="col-md-6 text-end">
+        <button class="btn btn-secondary me-2" @onclick="LoadPreviousWeek">← Previous Week</button>
+        <button class="btn btn-secondary me-2" @onclick="LoadCurrentWeek">This Week</button>
+        <button class="btn btn-secondary" @onclick="LoadNextWeek">Next Week →</button>
+    </div>
+</div>
+
+@if (currentView == "list")
+{
+    <div class="row">
+        <div class="col-12">
+            @if (classes.Any())
+            {
+                @foreach (var grouping in classes.GroupBy(c => c.StartTime.Date))
+                {
+                    <h5 class="mt-4 mb-3">@grouping.Key.ToString("dddd, MMMM dd, yyyy")</h5>
+                    
+                    <div class="row">
+                        @foreach (var classItem in grouping.OrderBy(c => c.StartTime))
+                        {
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="card @(classItem.IsFull ? "border-danger" : (classItem.AvailableSpots <= 2 ? "border-warning" : "border-success"))">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h6 class="mb-0">@classItem.Name</h6>
+                                        <span class="badge @(classItem.IsFull ? "bg-danger" : (classItem.AvailableSpots <= 2 ? "bg-warning" : "bg-success"))">
+                                            @classItem.AvailableSpots spots left
+                                        </span>
+                                    </div>
+                                    <div class="card-body">
+                                        <p class="card-text">
+                                            <strong>Time:</strong> @classItem.StartTime.ToString("h:mm tt") - @classItem.EndTime.ToString("h:mm tt")<br/>
+                                            @if (!string.IsNullOrEmpty(classItem.InstructorName))
+                                            {
+                                                <strong>Instructor:</strong> @classItem.InstructorName<br/>
+                                            }
+                                            <strong>Capacity:</strong> @classItem.BookedCount/@classItem.MaxCapacity
+                                        </p>
+                                        @if (!string.IsNullOrEmpty(classItem.Description))
+                                        {
+                                            <p class="card-text"><small class="text-muted">@classItem.Description</small></p>
+                                        }
+                                        
+                                        @if (IsClassBooked(classItem.Id))
+                                        {
+                                            <button class="btn btn-outline-danger btn-sm me-1" @onclick="() => CancelBooking(classItem.Id)">
+                                                Cancel Booking
+                                            </button>
+                                            @if (IsWithinCheckInWindow(classItem.StartTime))
+                                            {
+                                                <button class="btn btn-success btn-sm" @onclick="() => CheckInToClass(classItem.Id)">
+                                                    Check In
+                                                </button>
+                                            }
+                                        }
+                                        else if (classItem.IsFull)
+                                        {
+                                            @if (IsWithinCheckInWindow(classItem.StartTime))
+                                            {
+                                                <span class="me-2">
+                                                    <button class="btn btn-secondary btn-sm" disabled>Class Full</button>
+                                                </span>
+                                                <button class="btn btn-warning btn-sm" @onclick="() => CheckInToClass(classItem.Id)">
+                                                    Walk-in Check In
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-secondary btn-sm" disabled>Class Full</button>
+                                            }
+                                        }
+                                        else if (classItem.StartTime <= DateTime.Now.AddMinutes(-30))
+                                        {
+                                            <button class="btn btn-secondary btn-sm" disabled>Class Ended</button>
+                                        }
+                                        else if (IsWithinCheckInWindow(classItem.StartTime))
+                                        {
+                                            <button class="btn btn-primary btn-sm me-1" @onclick="() => BookClass(classItem.Id)">
+                                                Book Class
+                                            </button>
+                                            <button class="btn btn-success btn-sm" @onclick="() => CheckInToClass(classItem.Id)">
+                                                Check In
+                                            </button>
+                                        }
+                                        else
+                                        {
+                                            <button class="btn btn-primary btn-sm" @onclick="() => BookClass(classItem.Id)">
+                                                Book Class
+                                            </button>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="alert alert-info">No classes available for the selected time period.</div>
+            }
+        </div>
+    </div>
+}
+else
+{
+    <div class="calendar-view">
+        <h5 class="text-center mb-4">
+            @currentWeekStart.ToString("MMMM dd") - @currentWeekStart.AddDays(6).ToString("MMMM dd, yyyy")
+        </h5>
+        
+        <div class="row">
+            @for (int day = 0; day < 7; day++)
+            {
+                var dayDate = currentWeekStart.AddDays(day);
+                var dayClasses = classes.Where(c => c.StartTime.Date == dayDate.Date).OrderBy(c => c.StartTime).ToList();
+                
+                <div class="col">
+                    <div class="card h-100">
+                        <div class="card-header text-center">
+                            <strong>@dayDate.ToString("ddd")</strong><br/>
+                            <small>@dayDate.ToString("MMM dd")</small>
+                        </div>
+                        <div class="card-body p-2">
+                            @if (dayClasses.Any())
+                            {
+                                @foreach (var classItem in dayClasses)
+                                {
+                                    <div class="small-class-card mb-2 p-2 border rounded @(IsClassBooked(classItem.Id) ? "bg-success-subtle" : (classItem.IsFull ? "bg-danger-subtle" : ""))">
+                                        <div class="fw-bold small">@classItem.Name</div>
+                                        <div class="text-muted small">@classItem.StartTime.ToString("h:mm tt")</div>
+                                        <div class="small">@classItem.AvailableSpots spots</div>
+                                        @if (IsClassBooked(classItem.Id))
+                                        {
+                                            <button class="btn btn-outline-danger btn-xs" @onclick="() => CancelBooking(classItem.Id)">Cancel</button>
+                                        }
+                                        else if (!classItem.IsFull && classItem.StartTime > DateTime.Now)
+                                        {
+                                            <button class="btn btn-primary btn-xs" @onclick="() => BookClass(classItem.Id)">Book</button>
+                                        }
+                                    </div>
+                                }
+                            }
+                            else
+                            {
+                                <div class="text-muted small text-center">No classes</div>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-3">@statusMessage</div>
+}
+
+@code {
+    private List<ClassModel> classes = new();
+    private List<ClassBooking> myBookings = new();
+    private string currentView = "list";
+    private DateTime currentWeekStart = DateTime.Now.StartOfWeek(DayOfWeek.Sunday);
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClasses();
+        await LoadMyBookings();
+    }
+
+    private async Task LoadClasses()
+    {
+        try
+        {
+            var startDate = currentWeekStart;
+            var endDate = currentWeekStart.AddDays(6);
+            classes = await Http.GetFromJsonAsync<List<ClassModel>>($"api/class/calendar?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading classes: {ex.Message}";
+        }
+    }
+
+    private async Task LoadMyBookings()
+    {
+        try
+        {
+            myBookings = await Http.GetFromJsonAsync<List<ClassBooking>>("api/class/my-bookings") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading bookings: {ex.Message}";
+        }
+    }
+
+    private bool IsClassBooked(int classId)
+    {
+        return myBookings.Any(b => b.Class.Id == classId);
+    }
+
+    private async Task BookClass(int classId)
+    {
+        try
+        {
+            var resp = await Http.PostAsync($"api/class/book/{classId}", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                statusMessage = "Class booked successfully!";
+                await LoadClasses();
+                await LoadMyBookings();
+            }
+            else
+            {
+                var error = await resp.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to book class: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task CancelBooking(int classId)
+    {
+        try
+        {
+            var resp = await Http.DeleteAsync($"api/class/cancel/{classId}");
+            if (resp.IsSuccessStatusCode)
+            {
+                statusMessage = "Booking cancelled successfully!";
+                await LoadClasses();
+                await LoadMyBookings();
+            }
+            else
+            {
+                var error = await resp.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to cancel booking: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task CheckInToClass(int classId)
+    {
+        try
+        {
+            var resp = await Http.PostAsync($"api/class/checkin/{classId}", null);
+            if (resp.IsSuccessStatusCode)
+            {
+                statusMessage = "Successfully checked in to class!";
+                await LoadClasses();
+                await LoadMyBookings();
+            }
+            else
+            {
+                var error = await resp.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to check in: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private bool IsWithinCheckInWindow(DateTime classStartTime)
+    {
+        var now = DateTime.Now;
+        var checkInWindow = TimeSpan.FromMinutes(30);
+        return now >= classStartTime.Subtract(checkInWindow) && now <= classStartTime.Add(checkInWindow);
+    }
+
+    private void SetView(string view)
+    {
+        currentView = view;
+    }
+
+    private async Task LoadCurrentWeek()
+    {
+        currentWeekStart = DateTime.Now.StartOfWeek(DayOfWeek.Sunday);
+        await LoadClasses();
+    }
+
+    private async Task LoadPreviousWeek()
+    {
+        currentWeekStart = currentWeekStart.AddDays(-7);
+        await LoadClasses();
+    }
+
+    private async Task LoadNextWeek()
+    {
+        currentWeekStart = currentWeekStart.AddDays(7);
+        await LoadClasses();
+    }
+}
+
+<style>
+    .btn-xs {
+        padding: 0.125rem 0.25rem;
+        font-size: 0.75rem;
+        line-height: 1.2;
+        border-radius: 0.2rem;
+    }
+    
+    .small-class-card {
+        font-size: 0.8rem;
+    }
+    
+    .calendar-view .card {
+        min-height: 200px;
+    }
+</style>

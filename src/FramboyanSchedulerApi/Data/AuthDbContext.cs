@@ -14,5 +14,35 @@ namespace FramboyanSchedulerApi.Data
         public DbSet<MembershipType> MembershipTypes { get; set; }
         public DbSet<Membership> Memberships { get; set; }
         public DbSet<PaymentMethod> PaymentMethods { get; set; }
+
+        protected override void OnModelCreating(ModelBuilder modelBuilder)
+        {
+            base.OnModelCreating(modelBuilder);
+
+            // Configure relationships
+            modelBuilder.Entity<Attendance>()
+                .HasOne(a => a.User)
+                .WithMany()
+                .HasForeignKey(a => a.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Attendance>()
+                .HasOne(a => a.Class)
+                .WithMany(c => c.Attendances)
+                .HasForeignKey(a => a.ClassId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Membership>()
+                .HasOne(m => m.User)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Membership>()
+                .HasOne(m => m.MembershipType)
+                .WithMany()
+                .HasForeignKey(m => m.MembershipTypeId)
+                .OnDelete(DeleteBehavior.Cascade);
+        }
     }
 }

@@ -2,7 +2,6 @@
 @using Microsoft.AspNetCore.Components.Forms
 @using Client.Models
 @inject HttpClient Http
-@using Microsoft.AspNetCore.Components.Forms
 
 <h3>My Memberships</h3>
 
@@ -63,15 +62,31 @@
     private async Task ApplyMembership()
     {
         statusMessage = null;
-        var resp = await Http.PostAsJsonAsync("api/membership/apply", applyModel);
-        if (resp.IsSuccessStatusCode)
+        
+        if (applyModel.MembershipTypeId <= 0)
         {
-            statusMessage = "Membership application submitted.";
-            memberships = await Http.GetFromJsonAsync<List<Membership>>("api/membership/my-memberships") ?? new();
+            statusMessage = "Please select a membership type.";
+            return;
         }
-        else
+
+        try
         {
-            statusMessage = "Failed to apply for membership.";
+            var resp = await Http.PostAsJsonAsync("api/membership/apply", applyModel);
+            if (resp.IsSuccessStatusCode)
+            {
+                statusMessage = "Membership application submitted successfully!";
+                memberships = await Http.GetFromJsonAsync<List<Membership>>("api/membership/my-memberships") ?? new();
+                applyModel = new(); // Reset form
+            }
+            else
+            {
+                var errorContent = await resp.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to apply for membership: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
         }
     }
 

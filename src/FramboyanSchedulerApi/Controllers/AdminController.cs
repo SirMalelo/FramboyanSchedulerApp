@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Mvc;
 using FramboyanSchedulerApi.Data;
 using FramboyanSchedulerApi.Models;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.EntityFrameworkCore;
 using System.Threading.Tasks;
 
 namespace FramboyanSchedulerApi.Controllers
@@ -53,6 +55,20 @@ namespace FramboyanSchedulerApi.Controllers
                 user.Id
                 // Add more fields as needed
             });
+        }
+
+        [HttpGet("students")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> GetStudents()
+        {
+            var students = await _userManager.GetUsersInRoleAsync("Student");
+            var studentList = students.Select(s => new {
+                Id = s.Id,
+                Email = s.Email,
+                FullName = s.FullName ?? s.Email
+            }).ToList();
+            
+            return Ok(studentList);
         }
     }
 }

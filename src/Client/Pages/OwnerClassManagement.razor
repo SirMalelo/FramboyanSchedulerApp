@@ -1,0 +1,277 @@
+@page "/owner/class-management"
+@using Client.Models
+@using Client.Services
+@inject AuthenticatedHttpClient Http
+@using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components
+
+<h3>Class Management</h3>
+
+<button class="btn btn-primary mb-3" @onclick="ShowAddForm">Add New Class</button>
+
+<div class="row">
+    <div class="col-12">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Date & Time</th>
+                    <th>Duration</th>
+                    <th>Instructor</th>
+                    <th>Capacity</th>
+                    <th>Booked</th>
+                    <th>Available</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var classItem in classes)
+                {
+                    <tr>
+                        <td>@classItem.Name</td>
+                        <td>@classItem.StartTime.ToString("MMM dd, yyyy h:mm tt")</td>
+                        <td>@((classItem.EndTime - classItem.StartTime).TotalMinutes) min</td>
+                        <td>@(classItem.InstructorName ?? "TBD")</td>
+                        <td>@classItem.MaxCapacity</td>
+                        <td>@classItem.BookedCount</td>
+                        <td>@classItem.AvailableSpots</td>
+                        <td>
+                            <button class="btn btn-sm btn-secondary me-1" @onclick="() => EditClass(classItem)">Edit</button>
+                            <button class="btn btn-sm btn-info me-1" @onclick="() => ViewBookings(classItem.Id)">Bookings</button>
+                            <button class="btn btn-sm btn-danger" @onclick="() => DeleteClass(classItem.Id)">Delete</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+@if (showForm)
+{
+    <div class="modal show d-block" tabindex="-1" style="background-color: rgba(0,0,0,0.5);">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">@((editClass.Id == 0) ? "Add New Class" : "Edit Class")</h5>
+                    <button type="button" class="btn-close" @onclick="HideForm"></button>
+                </div>
+                <div class="modal-body">
+                    <EditForm Model="editClass" OnValidSubmit="HandleValidSubmit">
+                        <DataAnnotationsValidator />
+                        <ValidationSummary />
+                        
+                        <div class="mb-3">
+                            <label>Class Name</label>
+                            <InputText class="form-control" @bind-Value="editClass.Name" />
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label>Description</label>
+                            <InputTextArea class="form-control" @bind-Value="editClass.Description" rows="3" />
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <label>Start Date & Time</label>
+                                    <input type="datetime-local" class="form-control" @bind="editClass.StartTime" />
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <label>End Date & Time</label>
+                                    <input type="datetime-local" class="form-control" @bind="editClass.EndTime" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <label>Max Capacity</label>
+                                    <InputNumber class="form-control" @bind-Value="editClass.MaxCapacity" />
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="mb-3">
+                                    <label>Instructor Name</label>
+                                    <InputText class="form-control" @bind-Value="editClass.InstructorName" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="modal-footer">
+                            <button class="btn btn-success me-2" type="submit">@((editClass.Id == 0) ? "Create" : "Update")</button>
+                            <button class="btn btn-secondary" type="button" @onclick="HideForm">Cancel</button>
+                        </div>
+                    </EditForm>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@if (!string.IsNullOrEmpty(statusMessage))
+{
+    <div class="alert alert-info mt-3">@statusMessage</div>
+}
+
+@code {
+    private List<ClassModel> classes = new();
+    private ClassModel editClass = new();
+    private bool showForm = false;
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClasses();
+    }
+
+    private async Task LoadClasses()
+    {
+        try
+        {
+            var startDate = DateTime.UtcNow.Date.AddDays(-7);
+            var endDate = DateTime.UtcNow.Date.AddDays(30);
+            classes = await Http.GetFromJsonAsync<List<ClassModel>>($"api/class/calendar?startDate={startDate:yyyy-MM-dd}&endDate={endDate:yyyy-MM-dd}") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading classes: {ex.Message}";
+        }
+    }
+
+    private void ShowAddForm()
+    {
+        editClass = new ClassModel
+        {
+            StartTime = DateTime.Now.Date.AddHours(9), // Default to 9 AM today
+            EndTime = DateTime.Now.Date.AddHours(10),   // Default to 10 AM today
+            MaxCapacity = 10
+        };
+        showForm = true;
+    }
+
+    private void EditClass(ClassModel classModel)
+    {
+        editClass = new ClassModel
+        {
+            Id = classModel.Id,
+            Name = classModel.Name,
+            Description = classModel.Description,
+            StartTime = classModel.StartTime,
+            EndTime = classModel.EndTime,
+            MaxCapacity = classModel.MaxCapacity,
+            InstructorName = classModel.InstructorName
+        };
+        showForm = true;
+    }
+
+    private void HideForm()
+    {
+        showForm = false;
+        statusMessage = null;
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        statusMessage = null;
+        
+        try
+        {
+            if (editClass.Id == 0)
+            {
+                var createRequest = new {
+                    editClass.Name,
+                    editClass.Description,
+                    editClass.StartTime,
+                    editClass.EndTime,
+                    editClass.MaxCapacity,
+                    editClass.InstructorName
+                };
+                
+                var resp = await Http.PostAsJsonAsync("api/class/create", createRequest);
+                if (resp.IsSuccessStatusCode)
+                {
+                    await LoadClasses();
+                    showForm = false;
+                    statusMessage = "Class created successfully!";
+                }
+                else
+                {
+                    var error = await resp.Content.ReadAsStringAsync();
+                    statusMessage = $"Failed to create class: {error}";
+                }
+            }
+            else
+            {
+                var updateRequest = new {
+                    editClass.Name,
+                    editClass.Description,
+                    editClass.StartTime,
+                    editClass.EndTime,
+                    editClass.MaxCapacity,
+                    editClass.InstructorName
+                };
+                
+                var resp = await Http.PutAsJsonAsync($"api/class/update/{editClass.Id}", updateRequest);
+                if (resp.IsSuccessStatusCode)
+                {
+                    await LoadClasses();
+                    showForm = false;
+                    statusMessage = "Class updated successfully!";
+                }
+                else
+                {
+                    var error = await resp.Content.ReadAsStringAsync();
+                    statusMessage = $"Failed to update class: {error}";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task DeleteClass(int id)
+    {
+        if (await JSRuntime.InvokeAsync<bool>("confirm", "Are you sure you want to delete this class?"))
+        {
+            try
+            {
+                var resp = await Http.DeleteAsync($"api/class/delete/{id}");
+                if (resp.IsSuccessStatusCode)
+                {
+                    await LoadClasses();
+                    statusMessage = "Class deleted successfully!";
+                }
+                else
+                {
+                    var error = await resp.Content.ReadAsStringAsync();
+                    statusMessage = $"Failed to delete class: {error}";
+                }
+            }
+            catch (Exception ex)
+            {
+                statusMessage = $"Error: {ex.Message}";
+            }
+        }
+    }
+
+    private void ViewBookings(int classId)
+    {
+        // TODO: Navigate to bookings page or show modal
+        statusMessage = $"View bookings for class {classId} (feature coming soon)";
+    }
+
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+}
+
+@* Custom InputDateTime component since Blazor doesn't have one by default *@
+<style>
+    .modal.show {
+        display: block !important;
+    }
+</style>

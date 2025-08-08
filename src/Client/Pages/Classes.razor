@@ -2,10 +2,11 @@
 @* Displays a list of upcoming classes and handles check-in *@
 @page "/classes"
 @using Client.Models
+@using Client.Services
 @using Microsoft.AspNetCore.Components
 @using Client.Pages
 @using System.Net.Http.Json
-@inject HttpClient Http
+@inject AuthenticatedHttpClient Http
 
 
 <h1>Upcoming Classes</h1>
@@ -44,7 +45,7 @@ else
   }
 
   // Removes a class from the list after a successful check-in
-  private void HandleClassCheckedIn(string classId)
+  private void HandleClassCheckedIn(int classId)
   {
     var item = classes.FirstOrDefault(c => c.Id == classId);
     if (item != null)

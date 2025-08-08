@@ -1,0 +1,14 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run API",
+			"type": "shell",
+			"command": "dotnet run",
+			"group": "build",
+			"isBackground": true,
+			"args": [],
+			"problemMatcher": []
+		}
+	]
+}
