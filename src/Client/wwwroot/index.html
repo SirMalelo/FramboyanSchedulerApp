@@ -27,6 +27,42 @@
         <span class="dismiss">🗙</span>
     </div>
     <script src="_framework/blazor.webassembly.js"></script>
+    <script>
+        window.applyCustomStyles = (css) => {
+            // Remove existing custom styles
+            const existingStyle = document.getElementById('custom-site-styles');
+            if (existingStyle) {
+                existingStyle.remove();
+            }
+            
+            // Add new custom styles
+            if (css && css.trim()) {
+                const style = document.createElement('style');
+                style.id = 'custom-site-styles';
+                style.type = 'text/css';
+                style.innerHTML = css;
+                document.head.appendChild(style);
+            }
+        };
+        
+        // Load custom styles on page load
+        window.loadCustomStyles = async () => {
+            try {
+                const response = await fetch('/api/SiteCustomization/css');
+                if (response.ok) {
+                    const css = await response.text();
+                    window.applyCustomStyles(css);
+                }
+            } catch (error) {
+                console.log('Could not load custom styles:', error);
+            }
+        };
+        
+        // Load styles when Blazor starts
+        document.addEventListener('DOMContentLoaded', () => {
+            window.loadCustomStyles();
+        });
+    </script>
 </body>
 
 </html>

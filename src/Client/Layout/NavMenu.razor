@@ -1,78 +1,118 @@
 ﻿@using Microsoft.AspNetCore.Components.Routing
 @using Microsoft.AspNetCore.Components
 @using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Authorization
 @using Client.Shared
-@inject HttpClient Http
+@using Client.Models
+@using Client.Services
+@inject AuthenticatedHttpClient HttpClient
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
 <div class="sidebar">
     <div class="sidebar-brand p-3">
+        @if (!string.IsNullOrEmpty(studioName))
+        {
+            <div class="fw-bold text-white" style="font-size:1.1rem;">@studioName</div>
+        }
         @if (!string.IsNullOrEmpty(userName))
         {
-            <span class="fw-bold text-white" style="font-size:1.2rem;">@userName</span>
+            <small class="text-white-50">@userName</small>
         }
-
     </div>
     <nav class="nav flex-column nav-scrollable" @onclick="ToggleNavMenu">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="register">
-                <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> Create Login
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="login">
-                <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> Login
-            </NavLink>
-        </div>
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="profile">
-                <span class="bi bi-person-circle-nav-menu" aria-hidden="true"></span> Profile
-            </NavLink>
-        </div>
+        @if (customization.ShowHomeTab)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> @customization.HomeLabel
+                </NavLink>
+            </div>
+        }
+        @if (customization.ShowRegisterTab)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="register">
+                    <span class="bi bi-person-plus-fill-nav-menu" aria-hidden="true"></span> @customization.RegisterLabel
+                </NavLink>
+            </div>
+        }
+        @if (customization.ShowLoginTab)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="login">
+                    <span class="bi bi-box-arrow-in-right-nav-menu" aria-hidden="true"></span> @customization.LoginLabel
+                </NavLink>
+            </div>
+        }
+        @if (customization.ShowProfileTab)
+        {
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="profile">
+                    <span class="bi bi-person-circle-nav-menu" aria-hidden="true"></span> @customization.ProfileLabel
+                </NavLink>
+            </div>
+        }
         <AuthorizeRoleView Role="Owner">
+            <!-- Always show Site Customization for owners -->
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="owner/site-customization">
-                    <span class="bi bi-palette"></span> Site Customization
+                    <span class="bi bi-palette"></span> @(!string.IsNullOrEmpty(customization.SiteCustomizationLabel) ? customization.SiteCustomizationLabel : "Site Customization")
                 </NavLink>
             </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="owner/membership-types">
-                    <span class="bi bi-card-list"></span> Membership Types
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="owner/payment-methods">
-                    <span class="bi bi-credit-card"></span> Payment Methods
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="owner/assign-membership">
-                    <span class="bi bi-person-check"></span> Assign Membership
-                </NavLink>
-            </div>
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="owner/class-management">
-                    <span class="bi bi-calendar-event"></span> Manage Classes
-                </NavLink>
-            </div>
+            
+            @if (customization.ShowMembershipTypesTab)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="owner/membership-types">
+                        <span class="bi bi-card-list"></span> @(!string.IsNullOrEmpty(customization.MembershipTypesLabel) ? customization.MembershipTypesLabel : "Membership Types")
+                    </NavLink>
+                </div>
+            }
+            @if (customization.ShowPaymentMethodsTab)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="owner/payment-methods">
+                        <span class="bi bi-credit-card"></span> @(!string.IsNullOrEmpty(customization.PaymentMethodsLabel) ? customization.PaymentMethodsLabel : "Payment Methods")
+                    </NavLink>
+                </div>
+            }
+            @if (customization.ShowAssignMembershipTab)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="owner/assign-membership">
+                        <span class="bi bi-person-check"></span> @(!string.IsNullOrEmpty(customization.AssignMembershipLabel) ? customization.AssignMembershipLabel : "Assign Membership")
+                    </NavLink>
+                </div>
+            }
+            @if (customization.ShowManageClassesTab)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="owner/class-management">
+                        <span class="bi bi-calendar-event"></span> @(!string.IsNullOrEmpty(customization.ManageClassesLabel) ? customization.ManageClassesLabel : "Manage Classes")
+                    </NavLink>
+                </div>
+            }
         </AuthorizeRoleView>
         
         <!-- Classes available to all authenticated users -->
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="classes/calendar">
-                <span class="bi bi-calendar3"></span> Class Calendar
-            </NavLink>
-        </div>
-        
-        <AuthorizeRoleView Role="Student">
+        @if (customization.ShowClassesTab)
+        {
             <div class="nav-item px-3">
-                <NavLink class="nav-link" href="student/memberships">
-                    <span class="bi bi-people"></span> My Memberships
+                <NavLink class="nav-link" href="classes/calendar">
+                    <span class="bi bi-calendar3"></span> @customization.ClassesLabel
                 </NavLink>
             </div>
+        }
+        
+        <AuthorizeRoleView Role="Student">
+            @if (customization.ShowMembershipsTab)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="student/memberships">
+                        <span class="bi bi-people"></span> @customization.MembershipsLabel
+                    </NavLink>
+                </div>
+            }
         </AuthorizeRoleView>
     </nav>
 </div>
@@ -81,27 +121,42 @@
     private bool collapseNavMenu = true;
     private string? userName;
     private string? debugMeJson;
+    private string studioName = "Framboyan Studio";
+    private SiteCustomization customization = new();
 
     private string? NavMenuCssClass => collapseNavMenu ? "collapse" : null;
 
-    [Inject]
-    private IJSRuntime JS { get; set; } = default!;
-
-
-    [Inject]
-    private NavigationManager Navigation { get; set; } = default!;
     private IDisposable? locationChangedHandler;
 
     protected override async Task OnInitializedAsync()
     {
         await LoadUserName();
+        await LoadStudioName();
         locationChangedHandler = Navigation.RegisterLocationChangingHandler(OnLocationChanged);
     }
 
     private async ValueTask OnLocationChanged(LocationChangingContext context)
     {
         await LoadUserName();
+        await LoadStudioName();
         StateHasChanged();
+    }
+
+    private async Task LoadStudioName()
+    {
+        try
+        {
+            var response = await HttpClient.GetFromJsonAsync<SiteCustomization>("api/SiteCustomization");
+            if (response != null)
+            {
+                customization = response;
+                studioName = !string.IsNullOrEmpty(response.StudioName) ? response.StudioName : "Framboyan Studio";
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading studio customization: {ex.Message}");
+        }
     }
 
     private async Task LoadUserName()
@@ -117,16 +172,11 @@
 
         try
         {
-            var request = new HttpRequestMessage(HttpMethod.Get, "api/auth/me");
-            request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", token);
-            var client = Http ?? new HttpClient { BaseAddress = new Uri(Navigation.BaseUri) };
-            var response = await client.SendAsync(request);
-            if (response.IsSuccessStatusCode)
+            var response = await HttpClient.GetFromJsonAsync<System.Text.Json.JsonElement>("api/auth/me");
+            if (response.ValueKind != System.Text.Json.JsonValueKind.Undefined)
             {
-                var json = await response.Content.ReadAsStringAsync();
-                debugMeJson = json; // DEBUG: show in UI
-                var doc = System.Text.Json.JsonDocument.Parse(json);
-                if (doc.RootElement.TryGetProperty("fullName", out var fullNameProp) && !string.IsNullOrWhiteSpace(fullNameProp.GetString()))
+                debugMeJson = response.GetRawText(); // DEBUG: show in UI
+                if (response.TryGetProperty("fullName", out var fullNameProp) && !string.IsNullOrWhiteSpace(fullNameProp.GetString()))
                 {
                     userName = fullNameProp.GetString();
                     await JS.InvokeVoidAsync("localStorage.setItem", "profileFullName", userName ?? "");
@@ -139,7 +189,7 @@
             }
             else
             {
-                debugMeJson = $"ERROR: Status {response.StatusCode}";
+                debugMeJson = "ERROR: No response data";
                 userName = null;
                 await JS.InvokeVoidAsync("localStorage.removeItem", "profileFullName");
             }

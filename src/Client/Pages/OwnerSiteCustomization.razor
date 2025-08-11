@@ -1,121 +1,721 @@
 @page "/owner/site-customization"
-@inject HttpClient Http
+@using Client.Models
+@using Client.Services
 @using Microsoft.AspNetCore.Components.Forms
+@using Microsoft.AspNetCore.Components.Web
+@using Microsoft.AspNetCore.Authorization
+@inject AuthenticatedHttpClient HttpClient
+@inject IJSRuntime JSRuntime
+@inject NavigationManager Navigation
+@attribute [Authorize(Roles = "Owner")]
 
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h3 class="mb-0">Website Customization</h3>
+                    <div>
+                        <button class="btn btn-outline-primary me-2" @onclick="LoadPreview">
+                            <i class="fas fa-eye"></i> Preview
+                        </button>
+                        <button class="btn btn-success" @onclick="SaveCustomization" disabled="@isSaving">
+                            @if (isSaving)
+                            {
+                                <i class="fas fa-spinner fa-spin me-2"></i>
+                            }
+                            else
+                            {
+                                <i class="fas fa-save me-2"></i>
+                            }
+                            Save Changes
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    @if (!string.IsNullOrEmpty(message))
+                    {
+                        <div class="alert @(isError ? "alert-danger" : "alert-success") alert-dismissible">
+                            @message
+                            <button type="button" class="btn-close" @onclick='() => message = ""'></button>
+                        </div>
+                    }
 
-<h3>Site Customization</h3>
+                    <!-- Share Studio Section -->
+                    <div class="alert alert-info mb-4">
+                        <h5><i class="fas fa-share-alt me-2"></i>Share Your Studio</h5>
+                        <div class="mb-3">
+                            <label>Signup Link:</label>
+                            <div class="input-group mb-2">
+                                <input class="form-control" value="@signupUrl" readonly />
+                                <button class="btn btn-outline-secondary" @onclick="CopySignupUrl">Copy</button>
+                            </div>
+                            @if (copied)
+                            {
+                                <span class="text-success">Copied!</span>
+                            }
+                        </div>
+                    </div>
 
-<div class="mb-3">
-    <label>Share Signup Link:</label>
-    <div class="input-group mb-2">
-        <input class="form-control" value="@signupUrl" readonly />
-        <button class="btn btn-outline-secondary" @onclick="CopySignupUrl">Copy</button>
-    </div>
-    @if (copied)
-    {
-        <span class="text-success">Copied!</span>
-    }
-    <div class="mt-2">
-        <label>Share via:</label>
-        <div class="d-flex gap-2 flex-wrap">
-            <a class="btn btn-outline-primary" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=@Uri.EscapeDataString(signupUrl)"><i class="bi bi-facebook"></i> Facebook</a>
-            <a class="btn btn-outline-success" target="_blank" href="https://wa.me/?text=@Uri.EscapeDataString($"Sign up for our studio: {signupUrl}")"><i class="bi bi-whatsapp"></i> WhatsApp</a>
-            <a class="btn btn-outline-info" target="_blank" href="https://twitter.com/intent/tweet?url=@Uri.EscapeDataString(signupUrl)&text=Sign%20up%20for%20our%20studio!"><i class="bi bi-twitter-x"></i> X/Twitter</a>
-            <a class="btn btn-outline-danger" target="_blank" href="https://www.instagram.com/?url=@Uri.EscapeDataString(signupUrl)"><i class="bi bi-instagram"></i> Instagram</a>
-            <a class="btn btn-outline-primary" style="border-color:#0a66c2; color:#0a66c2;" target="_blank" href="https://www.linkedin.com/sharing/share-offsite/?url=@Uri.EscapeDataString(signupUrl)"><i class="bi bi-linkedin"></i> LinkedIn</a>
-            <a class="btn btn-outline-secondary" target="_blank" href="mailto:?subject=Join%20Our%20Studio&body=@Uri.EscapeDataString($"Sign up here: {signupUrl}")"><i class="bi bi-envelope"></i> Email</a>
+                    <ul class="nav nav-tabs" id="customizationTabs" role="tablist">
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "branding" ? "active" : "")" @onclick='() => activeTab = "branding"'>
+                                <i class="fas fa-tag me-2"></i>Branding
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "layout" ? "active" : "")" @onclick='() => activeTab = "layout"'>
+                                <i class="fas fa-layout me-2"></i>Layout & Background
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "colors" ? "active" : "")" @onclick='() => activeTab = "colors"'>
+                                <i class="fas fa-palette me-2"></i>Colors & Typography
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "components" ? "active" : "")" @onclick='() => activeTab = "components"'>
+                                <i class="fas fa-cube me-2"></i>Components
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "advanced" ? "active" : "")" @onclick='() => activeTab = "advanced"'>
+                                <i class="fas fa-cogs me-2"></i>Advanced
+                            </button>
+                        </li>
+                        <li class="nav-item">
+                            <button class="nav-link @(activeTab == "navigation" ? "active" : "")" @onclick='() => activeTab = "navigation"'>
+                                <i class="fas fa-bars me-2"></i>Navigation
+                            </button>
+                        </li>
+                    </ul>
+
+                    <div class="tab-content mt-4">
+                        @if (activeTab == "branding")
+                        {
+                            <div class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Studio Name</label>
+                                            <input type="text" class="form-control" @bind="customization.StudioName" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Welcome Text</label>
+                                            <textarea class="form-control" rows="3" @bind="customization.WelcomeText"></textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Contact Email</label>
+                                            <input type="email" class="form-control" @bind="customization.ContactEmail" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Contact Phone</label>
+                                            <input type="text" class="form-control" @bind="customization.ContactPhone" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Logo URL</label>
+                                            <input type="url" class="form-control" @bind="customization.LogoUrl" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Studio Website URL</label>
+                                            <input type="url" class="form-control" @bind="customization.StudioWebsiteUrl" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Address</label>
+                                            <textarea class="form-control" rows="3" @bind="customization.Address"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (activeTab == "layout")
+                        {
+                            <div class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Background Type</label>
+                                            <select class="form-select" @bind="customization.BackgroundType">
+                                                <option value="color">Solid Color</option>
+                                                <option value="gradient">Gradient</option>
+                                                <option value="image">Image</option>
+                                            </select>
+                                        </div>
+
+                                        @if (customization.BackgroundType == "color")
+                                        {
+                                            <div class="mb-3">
+                                                <label class="form-label">Background Color</label>
+                                                <div class="d-flex align-items-center">
+                                                    <input type="color" class="form-control form-control-color me-2" @bind="customization.BackgroundColor" />
+                                                    <input type="text" class="form-control" @bind="customization.BackgroundColor" />
+                                                </div>
+                                            </div>
+                                        }
+
+                                        @if (customization.BackgroundType == "gradient")
+                                        {
+                                            <div class="mb-3">
+                                                <label class="form-label">Gradient Start Color</label>
+                                                <div class="d-flex align-items-center">
+                                                    <input type="color" class="form-control form-control-color me-2" @bind="customization.GradientStart" />
+                                                    <input type="text" class="form-control" @bind="customization.GradientStart" />
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Gradient End Color</label>
+                                                <div class="d-flex align-items-center">
+                                                    <input type="color" class="form-control form-control-color me-2" @bind="customization.GradientEnd" />
+                                                    <input type="text" class="form-control" @bind="customization.GradientEnd" />
+                                                </div>
+                                            </div>
+                                            <div class="mb-3">
+                                                <label class="form-label">Gradient Direction</label>
+                                                <select class="form-select" @bind="customization.GradientDirection">
+                                                    <option value="to bottom">Top to Bottom</option>
+                                                    <option value="to top">Bottom to Top</option>
+                                                    <option value="to right">Left to Right</option>
+                                                    <option value="to left">Right to Left</option>
+                                                    <option value="45deg">Diagonal</option>
+                                                </select>
+                                            </div>
+                                        }
+
+                                        @if (customization.BackgroundType == "image")
+                                        {
+                                            <div class="mb-3">
+                                                <label class="form-label">Background Image URL</label>
+                                                <input type="url" class="form-control mb-2" @bind="customization.BackgroundImageUrl" />
+                                                <small class="text-muted">Or upload an image:</small>
+                                                <InputFile OnChange="UploadBackgroundImage" class="form-control" accept="image/*" />
+                                            </div>
+                                        }
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="mb-3">
+                                            <label class="form-label">Navigation Style</label>
+                                            <select class="form-select" @bind="customization.NavigationStyle">
+                                                <option value="sidebar">Sidebar</option>
+                                                <option value="topbar">Top Navigation</option>
+                                                <option value="both">Both</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Mobile Optimized</label>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.MobileOptimized" />
+                                                <label class="form-check-label">Enable mobile optimization</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (activeTab == "colors")
+                        {
+                            <div class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h5>Typography</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Primary Font</label>
+                                            <select class="form-select" @bind="customization.PrimaryFont">
+                                                <option value="Arial, sans-serif">Arial</option>
+                                                <option value="'Helvetica Neue', Helvetica, sans-serif">Helvetica</option>
+                                                <option value="Georgia, serif">Georgia</option>
+                                                <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                                                <option value="'Courier New', Courier, monospace">Courier New</option>
+                                                <option value="'Roboto', sans-serif">Roboto</option>
+                                                <option value="'Open Sans', sans-serif">Open Sans</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Text Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.TextColor" />
+                                                <input type="text" class="form-control" @bind="customization.TextColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Heading Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.HeadingColor" />
+                                                <input type="text" class="form-control" @bind="customization.HeadingColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Link Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.LinkColor" />
+                                                <input type="text" class="form-control" @bind="customization.LinkColor" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>Sidebar</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Sidebar Background</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.SidebarBackgroundColor" />
+                                                <input type="text" class="form-control" @bind="customization.SidebarBackgroundColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Sidebar Text Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.SidebarTextColor" />
+                                                <input type="text" class="form-control" @bind="customization.SidebarTextColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Sidebar Hover Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.SidebarHoverColor" />
+                                                <input type="text" class="form-control" @bind="customization.SidebarHoverColor" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (activeTab == "components")
+                        {
+                            <div class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h5>Buttons</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Primary Button Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.PrimaryButtonColor" />
+                                                <input type="text" class="form-control" @bind="customization.PrimaryButtonColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Button Border Radius</label>
+                                            <input type="text" class="form-control" @bind="customization.ButtonBorderRadius" placeholder="4px" />
+                                        </div>
+
+                                        <h5>Cards</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Card Background</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.CardBackgroundColor" />
+                                                <input type="text" class="form-control" @bind="customization.CardBackgroundColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Card Border Radius</label>
+                                            <input type="text" class="form-control" @bind="customization.CardBorderRadius" placeholder="8px" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>Forms</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Input Background</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.InputBackgroundColor" />
+                                                <input type="text" class="form-control" @bind="customization.InputBackgroundColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Input Focus Color</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.InputFocusColor" />
+                                                <input type="text" class="form-control" @bind="customization.InputFocusColor" />
+                                            </div>
+                                        </div>
+
+                                        <h5>Footer</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Footer Background</label>
+                                            <div class="d-flex align-items-center">
+                                                <input type="color" class="form-control form-control-color me-2" @bind="customization.FooterBackgroundColor" />
+                                                <input type="text" class="form-control" @bind="customization.FooterBackgroundColor" />
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Footer Text</label>
+                                            <textarea class="form-control" rows="2" @bind="customization.FooterText"></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (activeTab == "advanced")
+                        {
+                            <div class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h5>Theme Presets</h5>
+                                        <div class="mb-3">
+                                            <div class="btn-group-vertical d-grid gap-2">
+                                                <button class="btn btn-outline-primary" @onclick='() => ApplyPreset("default")'>Default Theme</button>
+                                                <button class="btn btn-outline-dark" @onclick='() => ApplyPreset("dark")'>Dark Theme</button>
+                                                <button class="btn btn-outline-secondary" @onclick='() => ApplyPreset("modern")'>Modern Theme</button>
+                                                <button class="btn btn-outline-info" @onclick='() => ApplyPreset("classic")'>Classic Theme</button>
+                                                <button class="btn btn-outline-warning" @onclick='() => ApplyPreset("vibrant")'>Vibrant Theme</button>
+                                            </div>
+                                        </div>
+
+                                        <h5>Animation Settings</h5>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.EnableAnimations" />
+                                                <label class="form-check-label">Enable Animations</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Animation Speed</label>
+                                            <select class="form-select" @bind="customization.AnimationSpeed">
+                                                <option value="slow">Slow</option>
+                                                <option value="normal">Normal</option>
+                                                <option value="fast">Fast</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>Social Media</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Facebook URL</label>
+                                            <input type="url" class="form-control" @bind="customization.FacebookUrl" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Instagram URL</label>
+                                            <input type="url" class="form-control" @bind="customization.InstagramUrl" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Twitter URL</label>
+                                            <input type="url" class="form-control" @bind="customization.TwitterUrl" />
+                                        </div>
+
+                                        <h5>Custom CSS</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Custom CSS Code</label>
+                                            <textarea class="form-control" rows="8" @bind="customization.CustomCSS" 
+                                                     placeholder="/* Add your custom CSS here */&#10;.custom-class {&#10;    color: #333;&#10;}"></textarea>
+                                            <small class="text-muted">Advanced users only. Invalid CSS may break the website.</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+
+                        @if (activeTab == "navigation")
+                        {
+                            <div class="tab-pane fade show active">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <h5>Navigation Labels</h5>
+                                        <div class="mb-3">
+                                            <label class="form-label">Home Tab</label>
+                                            <input type="text" class="form-control" @bind="customization.HomeLabel" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Login Tab</label>
+                                            <input type="text" class="form-control" @bind="customization.LoginLabel" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Register Tab</label>
+                                            <input type="text" class="form-control" @bind="customization.RegisterLabel" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Profile Tab</label>
+                                            <input type="text" class="form-control" @bind="customization.ProfileLabel" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Classes Tab</label>
+                                            <input type="text" class="form-control" @bind="customization.ClassesLabel" />
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Memberships Tab</label>
+                                            <input type="text" class="form-control" @bind="customization.MembershipsLabel" />
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <h5>Tab Visibility</h5>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowHomeTab" />
+                                                <label class="form-check-label">Show Home Tab</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowLoginTab" />
+                                                <label class="form-check-label">Show Login Tab</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowRegisterTab" />
+                                                <label class="form-check-label">Show Register Tab</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowProfileTab" />
+                                                <label class="form-check-label">Show Profile Tab</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowClassesTab" />
+                                                <label class="form-check-label">Show Classes Tab</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowMembershipsTab" />
+                                                <label class="form-check-label">Show Memberships Tab</label>
+                                            </div>
+                                        </div>
+                                        
+                                        <h6>Owner Tabs</h6>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowSiteCustomizationTab" />
+                                                <label class="form-check-label">Show Site Customization</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowMembershipTypesTab" />
+                                                <label class="form-check-label">Show Membership Types</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowManageClassesTab" />
+                                                <label class="form-check-label">Show Manage Classes</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowPaymentMethodsTab" />
+                                                <label class="form-check-label">Show Payment Methods</label>
+                                            </div>
+                                        </div>
+                                        <div class="mb-3">
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" @bind="customization.ShowAssignMembershipTab" />
+                                                <label class="form-check-label">Show Assign Membership</label>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
         </div>
-    </div>
-    <div class="mt-3">
-        <label>QR Code:</label>
-        <div>
-            <img src="https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=@Uri.EscapeDataString(signupUrl)" alt="QR Code" />
-            <a class="btn btn-outline-dark ms-2" href="https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=@Uri.EscapeDataString(signupUrl)" download="signup-qr.png">Download QR Code</a>
+
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Live Preview</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div id="live-preview" style="height: 600px; overflow-y: auto; border: 1px solid #ddd;">
+                        <div style="background: @GetPreviewBackground(); color: @customization.TextColor; font-family: @customization.PrimaryFont; padding: 20px; min-height: 100%;">
+                            <div style="background: @customization.SidebarBackgroundColor; color: @customization.SidebarTextColor; padding: 15px; margin-bottom: 20px;">
+                                <h6>@customization.StudioName</h6>
+                                <div style="background: @customization.SidebarHoverColor; padding: 8px; margin: 5px 0;">Navigation Item</div>
+                            </div>
+                            
+                            <div style="background: @customization.CardBackgroundColor; border: 1px solid @customization.CardBorderColor; border-radius: @customization.CardBorderRadius; padding: 20px; margin-bottom: 20px; box-shadow: @customization.CardShadow;">
+                                <h4 style="color: @customization.HeadingColor; font-family: @customization.SecondaryFont;">@customization.WelcomeText</h4>
+                                <p>This is a preview of your website design. Sample text content goes here.</p>
+                                <a href="#" style="color: @customization.LinkColor;">Sample Link</a>
+                            </div>
+                            
+                            <div style="background: @customization.CardBackgroundColor; border: 1px solid @customization.CardBorderColor; border-radius: @customization.CardBorderRadius; padding: 20px; margin-bottom: 20px;">
+                                <button style="background: @customization.PrimaryButtonColor; color: @customization.PrimaryButtonTextColor; border: none; padding: 10px 20px; border-radius: @customization.ButtonBorderRadius; margin-right: 10px;">Primary Button</button>
+                                <button style="background: @customization.SecondaryButtonColor; color: @customization.SecondaryButtonTextColor; border: none; padding: 10px 20px; border-radius: @customization.ButtonBorderRadius;">Secondary Button</button>
+                            </div>
+                            
+                            <div style="background: @customization.FooterBackgroundColor; color: @customization.FooterTextColor; padding: 15px; margin-top: 20px;">
+                                <small>@(!string.IsNullOrEmpty(customization.FooterText) ? customization.FooterText : "Footer content here")</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </div>
 
-@if (!string.IsNullOrEmpty(statusMessage))
-{
-    <div class="alert alert-info">@statusMessage</div>
-}
-
-<EditForm Model="customization" OnValidSubmit="SaveCustomization">
-    <DataAnnotationsValidator />
-    <ValidationSummary />
-    <div class="mb-2">
-        <label>Custom Welcome Text</label>
-        <InputText class="form-control" @bind-Value="customization.WelcomeText" />
-    </div>
-    <div class="mb-2">
-        <label>Background Image</label>
-        <InputFile OnChange="OnFileChange" />
-        @if (!string.IsNullOrEmpty(customization.BackgroundImageUrl))
-        {
-            <div class="mt-2">
-                <img src="@customization.BackgroundImageUrl" alt="Background" style="max-width:300px;max-height:150px;" />
-            </div>
-        }
-    </div>
-    <div class="mb-2">
-        <label>Studio Website Link (optional)</label>
-        <InputText class="form-control" @bind-Value="customization.StudioWebsiteUrl" placeholder="https://yourstudio.com" />
-    </div>
-    <button class="btn btn-success" type="submit">Save</button>
-</EditForm>
-
 @code {
     private SiteCustomization customization = new();
+    private string message = string.Empty;
+    private bool isError = false;
+    private bool isSaving = false;
+    private string activeTab = "branding";
     private string signupUrl = string.Empty;
     private bool copied = false;
-    private string? statusMessage;
-    private IBrowserFile? uploadedFile;
 
     protected override async Task OnInitializedAsync()
     {
-        var result = await Http.GetFromJsonAsync<SiteCustomization>("api/site/customization");
-        if (result != null)
-            customization = result;
+        await LoadCustomization();
         signupUrl = Navigation.BaseUri.TrimEnd('/') + "/register";
     }
-    [Inject] NavigationManager Navigation { get; set; } = default!;
-    [Inject] IJSRuntime JS { get; set; } = default!;
+
+    private async Task LoadCustomization()
+    {
+        try
+        {
+            var response = await HttpClient.GetFromJsonAsync<SiteCustomization>("api/SiteCustomization");
+            if (response != null)
+            {
+                customization = response;
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error loading customization: {ex.Message}", true);
+        }
+    }
+
+    private async Task SaveCustomization()
+    {
+        isSaving = true;
+        try
+        {
+            var response = await HttpClient.PutAsJsonAsync("api/SiteCustomization", customization);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                ShowMessage("Site customization saved successfully!", false);
+                await ApplyCustomStyles();
+            }
+            else
+            {
+                ShowMessage("Error saving customization", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error saving customization: {ex.Message}", true);
+        }
+        finally
+        {
+            isSaving = false;
+        }
+    }
+
+    private async Task ApplyPreset(string presetName)
+    {
+        try
+        {
+            var response = await HttpClient.PostAsync($"api/SiteCustomization/preset/{presetName}", null);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                await LoadCustomization();
+                ShowMessage($"{presetName} theme applied successfully!", false);
+            }
+            else
+            {
+                ShowMessage($"Error applying {presetName} theme", true);
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error applying preset: {ex.Message}", true);
+        }
+    }
+
+    private async Task UploadBackgroundImage(InputFileChangeEventArgs e)
+    {
+        try
+        {
+            var file = e.File;
+            if (file != null)
+            {
+                var content = new MultipartFormDataContent();
+                var fileContent = new StreamContent(file.OpenReadStream());
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(file.ContentType);
+                content.Add(fileContent, "file", file.Name);
+
+                var response = await HttpClient.PostAsync("api/SiteCustomization/upload-bg", content);
+                
+                if (response.IsSuccessStatusCode)
+                {
+                    var url = await response.Content.ReadAsStringAsync();
+                    customization.BackgroundImageUrl = url.Trim('"');
+                    ShowMessage("Background image uploaded successfully!", false);
+                }
+                else
+                {
+                    ShowMessage("Error uploading background image", true);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            ShowMessage($"Error uploading image: {ex.Message}", true);
+        }
+    }
+
+    private async Task LoadPreview()
+    {
+        await ApplyCustomStyles();
+        ShowMessage("Preview updated!", false);
+    }
+
+    private async Task ApplyCustomStyles()
+    {
+        try
+        {
+            var response = await HttpClient.GetAsync("api/SiteCustomization/css");
+            if (response.IsSuccessStatusCode)
+            {
+                var css = await response.Content.ReadAsStringAsync();
+                await JSRuntime.InvokeVoidAsync("applyCustomStyles", css);
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error applying styles: {ex.Message}");
+        }
+    }
 
     private async Task CopySignupUrl()
     {
-        await JS.InvokeVoidAsync("navigator.clipboard.writeText", signupUrl);
+        await JSRuntime.InvokeVoidAsync("navigator.clipboard.writeText", signupUrl);
         copied = true;
         await Task.Delay(1500);
         copied = false;
         StateHasChanged();
     }
 
-    private async Task SaveCustomization()
+    private void ShowMessage(string msg, bool error)
     {
-        statusMessage = null;
-        if (uploadedFile != null)
+        message = msg;
+        isError = error;
+        StateHasChanged();
+    }
+
+    private string GetPreviewBackground()
+    {
+        if (customization.BackgroundType == "gradient")
         {
-            var content = new MultipartFormDataContent();
-            content.Add(new StreamContent(uploadedFile.OpenReadStream(5 * 1024 * 1024)), "file", uploadedFile.Name);
-            var uploadResp = await Http.PostAsync("api/site/customization/upload-bg", content);
-            if (uploadResp.IsSuccessStatusCode)
-            {
-                customization.BackgroundImageUrl = await uploadResp.Content.ReadAsStringAsync();
-            }
+            return $"linear-gradient({customization.GradientDirection}, {customization.GradientStart}, {customization.GradientEnd})";
         }
-        var resp = await Http.PostAsJsonAsync("api/site/customization", customization);
-        statusMessage = resp.IsSuccessStatusCode ? "Customization saved!" : "Failed to save.";
-    }
-
-    private void OnFileChange(InputFileChangeEventArgs e)
-    {
-        uploadedFile = e.File;
-    }
-
-    public class SiteCustomization
-    {
-        public string WelcomeText { get; set; } = string.Empty;
-        public string BackgroundImageUrl { get; set; } = string.Empty;
-        public string StudioWebsiteUrl { get; set; } = string.Empty;
+        else if (customization.BackgroundType == "image" && !string.IsNullOrEmpty(customization.BackgroundImageUrl))
+        {
+            return $"url('{customization.BackgroundImageUrl}') center/cover";
+        }
+        else
+        {
+            return customization.BackgroundColor;
+        }
     }
 }

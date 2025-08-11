@@ -1,6 +1,4 @@
-using System.ComponentModel.DataAnnotations;
-
-namespace FramboyanSchedulerApi.Models
+namespace Client.Models
 {
     public class SiteCustomization
     {
@@ -22,14 +20,14 @@ namespace FramboyanSchedulerApi.Models
         public string BackgroundType { get; set; } = "color"; // "color", "image", "gradient"
         public string GradientStart { get; set; } = "#ffffff";
         public string GradientEnd { get; set; } = "#f0f0f0";
-        public string GradientDirection { get; set; } = "to-bottom"; // CSS gradient direction
+        public string GradientDirection { get; set; } = "to-bottom";
         
         // Navigation/Sidebar
         public string SidebarBackgroundColor { get; set; } = "#2c3e50";
         public string SidebarTextColor { get; set; } = "#ffffff";
         public string SidebarHoverColor { get; set; } = "#34495e";
         public string SidebarActiveColor { get; set; } = "#3498db";
-        public string NavigationStyle { get; set; } = "sidebar"; // "sidebar", "topbar", "both"
+        public string NavigationStyle { get; set; } = "sidebar";
         
         // Typography
         public string PrimaryFont { get; set; } = "Arial, sans-serif";
@@ -82,10 +80,10 @@ namespace FramboyanSchedulerApi.Models
         // Advanced Settings
         public bool EnableAnimations { get; set; } = true;
         public bool EnableParticles { get; set; } = false;
-        public string AnimationSpeed { get; set; } = "normal"; // "slow", "normal", "fast"
+        public string AnimationSpeed { get; set; } = "normal";
         
         // Theme Presets
-        public string ThemePreset { get; set; } = "default"; // "default", "dark", "modern", "classic", "custom"
+        public string ThemePreset { get; set; } = "default";
         
         // Mobile Responsiveness
         public bool MobileOptimized { get; set; } = true;

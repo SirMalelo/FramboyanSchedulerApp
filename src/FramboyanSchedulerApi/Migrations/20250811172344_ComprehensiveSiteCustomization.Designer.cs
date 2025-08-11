@@ -3,6 +3,7 @@ using System;
 using FramboyanSchedulerApi.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace FramboyanSchedulerApi.Migrations
 {
     [DbContext(typeof(AuthDbContext))]
-    partial class AuthDbContextModelSnapshot : ModelSnapshot
+    [Migration("20250811172344_ComprehensiveSiteCustomization")]
+    partial class ComprehensiveSiteCustomization
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "9.0.7");
@@ -239,23 +242,11 @@ namespace FramboyanSchedulerApi.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("AddButtonLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Address")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AnimationSpeed")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AssignMembershipLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("AssignMembershipPageTitle")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -271,15 +262,7 @@ namespace FramboyanSchedulerApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("BookClassButtonLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ButtonBorderRadius")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("CancelButtonLabel")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -299,18 +282,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CheckInButtonLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ClassManagementPageTitle")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ClassesLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("ContactEmail")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -320,14 +291,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("CustomCSS")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("DeleteButtonLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("EditButtonLabel")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -373,10 +336,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("HomeLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("InputBackgroundColor")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -408,27 +367,7 @@ namespace FramboyanSchedulerApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("LoginLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("LogoUrl")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("ManageClassesLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MembershipTypesLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MembershipTypesPageTitle")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("MembershipsLabel")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -440,14 +379,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .HasColumnType("INTEGER");
 
                     b.Property<string>("NavigationStyle")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PaymentMethodsLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("PaymentMethodsPageTitle")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
@@ -467,18 +398,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ProfileLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("RegisterLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SaveButtonLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("SecondaryButtonColor")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -495,39 +414,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<bool>("ShowAssignMembershipTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowClassesTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowHomeTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowLoginTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowManageClassesTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowMembershipTypesTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowMembershipsTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowPaymentMethodsTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowProfileTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowRegisterTab")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<bool>("ShowSiteCustomizationTab")
-                        .HasColumnType("INTEGER");
-
                     b.Property<string>("SidebarActiveColor")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -541,14 +427,6 @@ namespace FramboyanSchedulerApi.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("SidebarTextColor")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SiteCustomizationLabel")
-                        .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("StudentMembershipsPageTitle")
                         .IsRequired()
                         .HasColumnType("TEXT");
 

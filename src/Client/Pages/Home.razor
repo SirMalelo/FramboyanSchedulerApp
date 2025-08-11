@@ -1,7 +1,46 @@
 ﻿@page "/"
+@using Client.Models
+@using Client.Services
+@inject AuthenticatedHttpClient HttpClient
 
-<PageTitle>Home</PageTitle>
+<div class="welcome-section">
+    <h1 class="welcome-title">@welcomeText</h1>
+    @if (!string.IsNullOrEmpty(studioWebsiteUrl))
+    {
+        <p>
+            <a href="@studioWebsiteUrl" target="_blank" class="btn btn-primary">
+                Visit Our Main Website
+            </a>
+        </p>
+    }
+</div>
 
-<!-- Removed Hello, world! -->
+@code {
+    private string studioName = "Framboyan Studio";
+    private string welcomeText = "Welcome to Framboyan Studio.";
+    private string studioWebsiteUrl = string.Empty;
 
-<h1 style="color: black;">Welcome to Framboyan Studio.</h1>
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadSiteCustomization();
+    }
+
+    private async Task LoadSiteCustomization()
+    {
+        try
+        {
+            var customization = await HttpClient.GetFromJsonAsync<SiteCustomization>("api/SiteCustomization");
+            if (customization != null)
+            {
+                studioName = !string.IsNullOrEmpty(customization.StudioName) ? customization.StudioName : "Framboyan Studio";
+                welcomeText = !string.IsNullOrEmpty(customization.WelcomeText) ? customization.WelcomeText : $"Welcome to {studioName}.";
+                studioWebsiteUrl = customization.StudioWebsiteUrl ?? string.Empty;
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error loading site customization: {ex.Message}");
+        }
+    }
+}
