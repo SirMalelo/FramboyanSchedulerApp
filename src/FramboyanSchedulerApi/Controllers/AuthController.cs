@@ -31,7 +31,13 @@ namespace FramboyanSchedulerApi.Controllers
             if (model.Password != model.ConfirmPassword)
                 return BadRequest("Passwords do not match.");
 
-            var user = new ApplicationUser { UserName = model.Email, Email = model.Email, EmailConfirmed = true };
+            var user = new ApplicationUser { 
+                UserName = model.Email, 
+                Email = model.Email, 
+                EmailConfirmed = true,
+                CreatedBy = "Self-Registered",
+                CreatedAt = DateTime.UtcNow
+            };
             var result = await _userManager.CreateAsync(user, model.Password);
 
             if (result.Succeeded)

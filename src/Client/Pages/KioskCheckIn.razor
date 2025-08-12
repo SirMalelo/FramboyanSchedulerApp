@@ -1,0 +1,345 @@
+@page "/kiosk-checkin"
+@using Client.Models
+@using Client.Services
+@using System.Net.Http.Json
+@inject AuthenticatedHttpClient Http
+@inject IJSRuntime JS
+
+<h1>Student Check-In Kiosk</h1>
+
+<div class="container-fluid p-4" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh;">
+    <div class="row justify-content-center">
+        <div class="col-12 col-lg-8">
+            
+            @* Header *@
+            <div class="text-center mb-4">
+                <h1 class="display-4 text-white mb-2">🏃‍♀️ Class Check-In</h1>
+                <p class="lead text-white-50">Select your name and class to check in</p>
+            </div>
+
+            @* Status Message *@
+            @if (!string.IsNullOrEmpty(statusMessage))
+            {
+                <div class="alert @(statusMessage.Contains("successfully") ? "alert-success" : "alert-danger") alert-dismissible fade show" role="alert">
+                    <h5 class="alert-heading">
+                        @if (statusMessage.Contains("successfully"))
+                        {
+                            <text><i class="bi bi-check-circle"></i> @recentCheckIn</text>
+                        }
+                        else
+                        {
+                            <text><i class="bi bi-exclamation-triangle"></i> Error</text>
+                        }
+                    </h5>
+                    @statusMessage
+                    @if (statusMessage.Contains("successfully"))
+                    {
+                        <hr>
+                        <p class="mb-0 small">Checked in at @recentCheckInTime</p>
+                    }
+                    <button type="button" class="btn-close" @onclick="ClearMessage"></button>
+                </div>
+            }
+
+            @* Main Check-In Card *@
+            <div class="card shadow-lg border-0">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h3 class="mb-0">
+                        <i class="bi bi-person-check"></i> Quick Check-In
+                    </h3>
+                </div>
+                <div class="card-body p-4">
+                    
+                    @* Student Selection *@
+                    <div class="mb-4">
+                        <label class="form-label h5">
+                            <i class="bi bi-person"></i> Select Your Name:
+                        </label>
+                        <select @bind="selectedStudentId" class="form-select form-select-lg" style="font-size: 1.2rem;">
+                            <option value="">-- Choose Your Name --</option>
+                            @foreach (var student in students)
+                            {
+                                <option value="@student.Id">@student.DisplayName</option>
+                            }
+                        </select>
+                    </div>
+
+                    @* Class Selection *@
+                    <div class="mb-4">
+                        <label class="form-label h5">
+                            <i class="bi bi-calendar-event"></i> Select Class:
+                        </label>
+                        @if (currentClasses.Any())
+                        {
+                            <div class="row">
+                                @foreach (var classItem in currentClasses)
+                                {
+                                    <div class="col-12 col-md-6 mb-3">
+                                        <div class="card h-100 @(selectedClassId == classItem.Id ? "border-primary bg-primary bg-opacity-10" : "border-secondary")" 
+                                             style="cursor: pointer;" @onclick="() => SelectClass(classItem.Id)">
+                                            <div class="card-body">
+                                                <h5 class="card-title">@classItem.Name</h5>
+                                                <p class="card-text">
+                                                    <strong>Time:</strong> @classItem.StartTime.ToString("h:mm tt") - @classItem.EndTime.ToString("h:mm tt")<br>
+                                                    <strong>Instructor:</strong> @(classItem.InstructorName ?? "TBD")<br>
+                                                    <strong>Checked In:</strong> @classItem.CheckedInCount / @classItem.MaxCapacity
+                                                </p>
+                                                @if (selectedClassId == classItem.Id)
+                                                {
+                                                    <i class="bi bi-check-circle text-primary float-end"></i>
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle"></i> No classes are currently available for check-in.
+                                <br><small>Check-in is available 30 minutes before class start until 1 hour after.</small>
+                            </div>
+                        }
+                    </div>
+
+                    @* Check-In Button *@
+                    <div class="text-center">
+                        <button class="btn btn-success btn-lg px-5 py-3" 
+                                @onclick="CheckInStudent" 
+                                disabled="@(string.IsNullOrEmpty(selectedStudentId) || selectedClassId == 0 || isProcessing)"
+                                style="font-size: 1.3rem;">
+                            @if (isProcessing)
+                            {
+                                <span class="spinner-border spinner-border-sm me-2"></span>
+                                <span>Checking In...</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-check-circle"></i>
+                                <span>Check In Now</span>
+                            }
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            @* Current Class Status *@
+            @if (currentClasses.Any())
+            {
+                <div class="mt-4">
+                    <div class="card border-info">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0"><i class="bi bi-clock"></i> Today's Classes</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                @foreach (var classItem in currentClasses)
+                                {
+                                    <div class="col-12 col-md-6 col-lg-4 mb-3">
+                                        <div class="card border-light">
+                                            <div class="card-body text-center">
+                                                <h6 class="card-title">@classItem.Name</h6>
+                                                <p class="card-text small">
+                                                    @classItem.StartTime.ToString("h:mm tt")<br>
+                                                    @classItem.CheckedInCount checked in
+                                                </p>
+                                                <div class="progress" style="height: 8px;">
+                                                    <div class="progress-bar" 
+                                                         style="width: @(((double)classItem.CheckedInCount / classItem.MaxCapacity) * 100)%"></div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            @* Refresh Button *@
+            <div class="text-center mt-4">
+                <button class="btn btn-outline-light btn-lg" @onclick="RefreshData">
+                    <i class="bi bi-arrow-clockwise"></i> Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<StudentModel> students = new();
+    private List<CurrentClassModel> currentClasses = new();
+    private string selectedStudentId = string.Empty;
+    private int selectedClassId = 0;
+    private string statusMessage = string.Empty;
+    private string recentCheckIn = string.Empty;
+    private string recentCheckInTime = string.Empty;
+    private bool isProcessing = false;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await RefreshData();
+        
+        // Auto-refresh every 30 seconds
+        var timer = new Timer(async _ => 
+        {
+            await InvokeAsync(async () =>
+            {
+                await LoadCurrentClasses();
+                StateHasChanged();
+            });
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    private async Task RefreshData()
+    {
+        await LoadStudents();
+        await LoadCurrentClasses();
+    }
+
+    private async Task LoadStudents()
+    {
+        try
+        {
+            students = await Http.GetFromJsonAsync<List<StudentModel>>("api/class/students") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading students: {ex.Message}";
+        }
+    }
+
+    private async Task LoadCurrentClasses()
+    {
+        try
+        {
+            currentClasses = await Http.GetFromJsonAsync<List<CurrentClassModel>>("api/class/current-classes") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading classes: {ex.Message}";
+        }
+    }
+
+    private void SelectClass(int classId)
+    {
+        selectedClassId = classId;
+    }
+
+    private async Task CheckInStudent()
+    {
+        if (string.IsNullOrEmpty(selectedStudentId) || selectedClassId == 0)
+            return;
+
+        isProcessing = true;
+        try
+        {
+            var request = new KioskCheckInRequest
+            {
+                ClassId = selectedClassId,
+                StudentId = selectedStudentId
+            };
+
+            var response = await Http.PostAsJsonAsync("api/class/kiosk-checkin", request);
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<KioskCheckInResponse>();
+                statusMessage = result?.Message ?? "Successfully checked in!";
+                recentCheckIn = result?.StudentName ?? "";
+                recentCheckInTime = result?.CheckInTime ?? DateTime.Now.ToString("h:mm tt");
+                
+                // Clear selections
+                selectedStudentId = string.Empty;
+                selectedClassId = 0;
+                
+                // Refresh data
+                await LoadCurrentClasses();
+                
+                // Auto-clear message after 5 seconds
+                _ = Task.Delay(5000).ContinueWith(_ => InvokeAsync(() =>
+                {
+                    statusMessage = string.Empty;
+                    StateHasChanged();
+                }));
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Check-in failed: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void ClearMessage()
+    {
+        statusMessage = string.Empty;
+    }
+
+    public class StudentModel
+    {
+        public string Id { get; set; } = string.Empty;
+        public string Email { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+    }
+
+    public class CurrentClassModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public int MaxCapacity { get; set; }
+        public string InstructorName { get; set; } = string.Empty;
+        public int BookedCount { get; set; }
+        public int CheckedInCount { get; set; }
+        public int AvailableSpots { get; set; }
+    }
+
+    public class KioskCheckInRequest
+    {
+        public int ClassId { get; set; }
+        public string StudentId { get; set; } = string.Empty;
+    }
+
+    public class KioskCheckInResponse
+    {
+        public string Message { get; set; } = string.Empty;
+        public string StudentName { get; set; } = string.Empty;
+        public string ClassName { get; set; } = string.Empty;
+        public string CheckInTime { get; set; } = string.Empty;
+    }
+}
+
+<style>
+    .card {
+        transition: all 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15) !important;
+    }
+    
+    .btn-lg {
+        border-radius: 25px;
+    }
+    
+    .form-select-lg {
+        border-radius: 15px;
+    }
+    
+    .progress {
+        border-radius: 10px;
+    }
+</style>

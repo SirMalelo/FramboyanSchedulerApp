@@ -12,7 +12,7 @@ builder.RootComponents.Add<App>("#app");
 builder.Services.AddAuthorizationCore();
 builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStateProvider>();
 builder.Services.AddScoped(sp =>
-    new HttpClient { BaseAddress = new Uri("https://localhost:7117") }
+    new HttpClient { BaseAddress = new Uri("http://localhost:5117") }
 );
 builder.Services.AddScoped<AuthenticatedHttpClient>();
 

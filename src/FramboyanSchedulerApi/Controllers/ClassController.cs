@@ -357,6 +357,135 @@ namespace FramboyanSchedulerApi.Controllers
             return Ok(bookings);
         }
 
+        // OWNER/KIOSK: Get all students for kiosk check-in
+        [HttpGet("students")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> GetStudents()
+        {
+            var students = await _userManager.GetUsersInRoleAsync("Student");
+            var studentList = students.Select(s => new {
+                s.Id,
+                s.Email,
+                DisplayName = string.IsNullOrEmpty(s.FullName) ? s.Email : s.FullName
+            }).OrderBy(s => s.DisplayName).ToList();
+
+            return Ok(studentList);
+        }
+
+        // OWNER/KIOSK: Check-in student by name (for kiosk)
+        [HttpPost("kiosk-checkin")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> KioskCheckIn([FromBody] KioskCheckInRequest request)
+        {
+            var classModel = await _db.Classes
+                .Include(c => c.Attendances)
+                .FirstOrDefaultAsync(c => c.Id == request.ClassId);
+
+            if (classModel == null) return NotFound("Class not found.");
+            if (!classModel.IsActive) return BadRequest("Class is not active.");
+            
+            // Allow check-in from 30 minutes before class until 1 hour after start
+            var checkInWindow = TimeSpan.FromMinutes(30);
+            var extendedWindow = TimeSpan.FromHours(1);
+            if (DateTime.Now < classModel.StartTime.Subtract(checkInWindow) || 
+                DateTime.Now > classModel.StartTime.Add(extendedWindow))
+                return BadRequest("Check-in window is 30 minutes before class start to 1 hour after class start.");
+
+            // Check if student exists
+            var student = await _userManager.FindByIdAsync(request.StudentId);
+            if (student == null) return BadRequest("Student not found.");
+
+            // Check if already checked in
+            var existingAttendance = await _db.Attendances
+                .Where(a => a.UserId == request.StudentId && a.ClassId == request.ClassId)
+                .FirstOrDefaultAsync();
+
+            if (existingAttendance != null)
+            {
+                if (existingAttendance.IsCheckedIn)
+                    return BadRequest($"{student.FullName ?? student.Email} has already checked in to this class.");
+                
+                // If they had a booking, just mark as checked in
+                existingAttendance.IsCheckedIn = true;
+                existingAttendance.CheckedInAt = DateTime.UtcNow;
+            }
+            else
+            {
+                // Check capacity for walk-ins
+                var currentBookings = classModel.Attendances.Count(a => a.IsConfirmed);
+                if (currentBookings >= classModel.MaxCapacity)
+                    return BadRequest("Class is full. No walk-in spots available.");
+
+                // Create new attendance record for walk-in
+                existingAttendance = new Attendance
+                {
+                    UserId = request.StudentId,
+                    ClassId = request.ClassId,
+                    BookedAt = DateTime.UtcNow,
+                    IsConfirmed = true,
+                    IsCheckedIn = true,
+                    CheckedInAt = DateTime.UtcNow
+                };
+                _db.Attendances.Add(existingAttendance);
+            }
+
+            try
+            {
+                await _db.SaveChangesAsync();
+                return Ok(new { 
+                    message = $"{student.FullName ?? student.Email} successfully checked in to {classModel.Name}!",
+                    studentName = student.FullName ?? student.Email,
+                    className = classModel.Name,
+                    checkInTime = DateTime.Now.ToString("h:mm tt")
+                });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest($"Failed to check in: {ex.Message}");
+            }
+        }
+
+        // OWNER/KIOSK: Get current classes available for check-in
+        [HttpGet("current-classes")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> GetCurrentClasses()
+        {
+            var now = DateTime.Now;
+            var checkInWindow = TimeSpan.FromMinutes(30);
+            var extendedWindow = TimeSpan.FromHours(1);
+            
+            var classes = await _db.Classes
+                .Where(c => c.IsActive && 
+                           now >= c.StartTime.Subtract(checkInWindow) && 
+                           now <= c.StartTime.Add(extendedWindow))
+                .Include(c => c.Attendances)
+                .Select(c => new {
+                    c.Id,
+                    c.Name,
+                    c.Description,
+                    c.StartTime,
+                    c.EndTime,
+                    c.MaxCapacity,
+                    c.InstructorName,
+                    BookedCount = c.Attendances.Count(a => a.IsConfirmed),
+                    CheckedInCount = c.Attendances.Count(a => a.IsCheckedIn),
+                    AvailableSpots = c.MaxCapacity - c.Attendances.Count(a => a.IsConfirmed)
+                })
+                .OrderBy(c => c.StartTime)
+                .ToListAsync();
+
+            return Ok(classes);
+        }
+
+        public class KioskCheckInRequest
+        {
+            [Required]
+            public int ClassId { get; set; }
+            
+            [Required]
+            public string StudentId { get; set; } = string.Empty;
+        }
+
         public class CreateClassRequest
         {
             [Required]
