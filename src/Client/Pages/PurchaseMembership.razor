@@ -1,0 +1,255 @@
+@page "/payment/membership/{membershipTypeId:int}"
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<PageTitle>Purchase Membership</PageTitle>
+
+<div class="container mt-4">
+    @if (membershipType == null)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Purchase Membership</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="membership-details mb-4">
+                            <h4>@membershipType.Name</h4>
+                            <p class="text-muted">@membershipType.Description</p>
+                            
+                            <div class="row">
+                                <div class="col-sm-6">
+                                    <strong>Price:</strong> $@membershipType.Price.ToString("F2")
+                                </div>
+                                <div class="col-sm-6">
+                                    @if (membershipType.SetupFee > 0)
+                                    {
+                                        <div><strong>Setup Fee:</strong> $@membershipType.SetupFee.ToString("F2")</div>
+                                    }
+                                </div>
+                            </div>
+                            
+                            @if (membershipType.ClassCount.HasValue)
+                            {
+                                <p><strong>Classes Included:</strong> @membershipType.ClassCount</p>
+                            }
+                            else
+                            {
+                                <p><strong>Classes:</strong> Unlimited</p>
+                            }
+                            
+                            @if (membershipType.DurationDays.HasValue)
+                            {
+                                <p><strong>Duration:</strong> @membershipType.DurationDays days</p>
+                            }
+                            
+                            @if (membershipType.IsRecurring)
+                            {
+                                <p><strong>Billing:</strong> Recurring every @membershipType.BillingCycleDays days</p>
+                            }
+                        </div>
+
+                        <div class="payment-summary border p-3 mb-4">
+                            <h5>Payment Summary</h5>
+                            <div class="d-flex justify-content-between">
+                                <span>Membership Price:</span>
+                                <span>$@membershipType.Price.ToString("F2")</span>
+                            </div>
+                            @if (membershipType.SetupFee > 0)
+                            {
+                                <div class="d-flex justify-content-between">
+                                    <span>Setup Fee:</span>
+                                    <span>$@membershipType.SetupFee.ToString("F2")</span>
+                                </div>
+                            }
+                            <div class="d-flex justify-content-between text-muted">
+                                <span>Processing Fee:</span>
+                                <span>$@processingFee.ToString("F2")</span>
+                            </div>
+                            <hr>
+                            <div class="d-flex justify-content-between fw-bold">
+                                <span>Total:</span>
+                                <span>$@totalAmount.ToString("F2")</span>
+                            </div>
+                        </div>
+
+                        <div class="payment-actions">
+                            @if (isProcessing)
+                            {
+                                <button class="btn btn-primary" disabled>
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span>
+                                    Processing...
+                                </button>
+                            }
+                            else
+                            {
+                                <button class="btn btn-primary btn-lg w-100" @onclick="ProcessPayment">
+                                    Purchase Membership
+                                </button>
+                            }
+                            
+                            <button class="btn btn-secondary mt-2" @onclick="GoBack">
+                                Cancel
+                            </button>
+                        </div>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger mt-3">
+                                @errorMessage
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int MembershipTypeId { get; set; }
+
+    private MembershipTypeModel? membershipType;
+    private decimal processingFee = 0;
+    private decimal totalAmount = 0;
+    private bool isProcessing = false;
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembershipType();
+        await CalculateFees();
+    }
+
+    private async Task LoadMembershipType()
+    {
+        try
+        {
+            membershipType = await Http.GetFromJsonAsync<MembershipTypeModel>($"api/membership/types/{MembershipTypeId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Error loading membership type.";
+        }
+    }
+
+    private async Task CalculateFees()
+    {
+        if (membershipType == null) return;
+
+        try
+        {
+            var response = await Http.GetFromJsonAsync<StripeSettingsResponse>("api/payment/stripe-settings");
+            if (response != null)
+            {
+                var subtotal = membershipType.Price + membershipType.SetupFee;
+                processingFee = (subtotal * response.ProcessingFeePercentage / 100) + response.ProcessingFeeFixed;
+                processingFee += (subtotal * response.AdditionalFeePercentage / 100) + response.AdditionalFeeFixed;
+                totalAmount = subtotal + processingFee;
+            }
+        }
+        catch
+        {
+            // Use default processing fee if can't load settings
+            var subtotal = membershipType.Price + membershipType.SetupFee;
+            processingFee = (subtotal * 2.9m / 100) + 0.30m;
+            totalAmount = subtotal + processingFee;
+        }
+    }
+
+    private async Task ProcessPayment()
+    {
+        if (membershipType == null) return;
+
+        isProcessing = true;
+        errorMessage = "";
+
+        try
+        {
+            var request = new CreateMembershipPaymentRequest
+            {
+                MembershipTypeId = membershipType.Id
+            };
+
+            var response = await Http.PostAsJsonAsync("api/payment/create-membership-payment", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PaymentSessionResponse>();
+                if (result != null && !string.IsNullOrEmpty(result.Url))
+                {
+                    Navigation.NavigateTo(result.Url, forceLoad: true);
+                }
+                else
+                {
+                    errorMessage = "Error creating payment session.";
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Payment failed: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "An error occurred while processing payment.";
+        }
+        finally
+        {
+            isProcessing = false;
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/memberships");
+    }
+
+    public class MembershipTypeModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public decimal Price { get; set; }
+        public decimal SetupFee { get; set; }
+        public int? ClassCount { get; set; }
+        public int? DurationDays { get; set; }
+        public string? Description { get; set; }
+        public bool IsRecurring { get; set; }
+        public int BillingCycleDays { get; set; }
+        public bool AllowOnlineSignup { get; set; }
+        public bool RequiresApproval { get; set; }
+    }
+
+    public class CreateMembershipPaymentRequest
+    {
+        public int MembershipTypeId { get; set; }
+    }
+
+    public class PaymentSessionResponse
+    {
+        public string SessionId { get; set; } = "";
+        public string Url { get; set; } = "";
+    }
+
+    public class StripeSettingsResponse
+    {
+        public string PublishableKey { get; set; } = "";
+        public decimal ProcessingFeePercentage { get; set; }
+        public decimal ProcessingFeeFixed { get; set; }
+        public decimal AdditionalFeePercentage { get; set; }
+        public decimal AdditionalFeeFixed { get; set; }
+        public bool IsEnabled { get; set; }
+    }
+}

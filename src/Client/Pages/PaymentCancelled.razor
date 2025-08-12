@@ -1,0 +1,47 @@
+@page "/payment-cancelled"
+@inject NavigationManager Navigation
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-warning">
+                <div class="card-header bg-warning text-dark text-center">
+                    <h3><i class="fas fa-exclamation-triangle"></i> Payment Cancelled</h3>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-times-circle text-warning" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h4>Payment was cancelled</h4>
+                    <p class="text-muted">No charges were made to your account.</p>
+                    
+                    <div class="mt-4">
+                        <p>You can try again or contact us if you need assistance.</p>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button class="btn btn-primary me-2" @onclick="GoBack">
+                            Try Again
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="GoToClasses">
+                            Browse Classes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/memberships");
+    }
+
+    private void GoToClasses()
+    {
+        Navigation.NavigateTo("/classes");
+    }
+}

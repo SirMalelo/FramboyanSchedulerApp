@@ -1,0 +1,205 @@
+@page "/payment/class/{classId:int}"
+@using System.Text.Json
+@inject HttpClient Http
+@inject NavigationManager Navigation
+
+<h3>Purchase Class</h3>
+
+<div class="container mt-4">
+    @if (classModel == null)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Purchase Class</h3>
+                    </div>
+                    <div class="card-body">
+                        <div class="class-details mb-4">
+                            <h4>@classModel.Name</h4>
+                            <p class="text-muted">@classModel.Description</p>
+                            <p><strong>Schedule:</strong> @classModel.Schedule</p>
+                            <p><strong>Instructor:</strong> @classModel.Instructor</p>
+                            <p><strong>Available Spots:</strong> @classModel.AvailableSpots</p>
+                        </div>
+
+                        <div class="payment-options mb-4">
+                            @if (classModel.AllowDropIn && classModel.DropInPrice > 0)
+                            {
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h5>Drop-in Payment</h5>
+                                        <p>Pay for this single class</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>Price: $@classModel.DropInPrice.ToString("F2")</strong>
+                                                <br><small class="text-muted">+ processing fee</small>
+                                            </div>
+                                            <button class="btn btn-primary" @onclick='() => ProcessPayment("DropIn")' disabled="@isProcessing">
+                                                @if (isProcessing && selectedPaymentType == "DropIn")
+                                                {
+                                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                                }
+                                                Purchase Drop-in
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+
+                            @if (classModel.AllowPackagePurchase && classModel.PackagePrice > 0)
+                            {
+                                <div class="card mb-3">
+                                    <div class="card-body">
+                                        <h5>Class Package</h5>
+                                        <p>@classModel.PackageClassCount classes for this type</p>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>Price: $@classModel.PackagePrice.ToString("F2")</strong>
+                                                <br><small class="text-muted">+ processing fee</small>
+                                                <br><small class="text-success">Save $@((classModel.DropInPrice * classModel.PackageClassCount) - classModel.PackagePrice).ToString("F2")</small>
+                                            </div>
+                                            <button class="btn btn-success" @onclick='() => ProcessPayment("Package")' disabled="@isProcessing">
+                                                @if (isProcessing && selectedPaymentType == "Package")
+                                                {
+                                                    <span class="spinner-border spinner-border-sm me-2"></span>
+                                                }
+                                                Purchase Package
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+
+                        <button class="btn btn-secondary" @onclick="GoBack">
+                            Back to Classes
+                        </button>
+
+                        @if (!string.IsNullOrEmpty(errorMessage))
+                        {
+                            <div class="alert alert-danger mt-3">
+                                @errorMessage
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int ClassId { get; set; }
+
+    private ClassModel? classModel;
+    private bool isProcessing = false;
+    private string selectedPaymentType = "";
+    private string errorMessage = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadClass();
+    }
+
+    private async Task LoadClass()
+    {
+        try
+        {
+            classModel = await Http.GetFromJsonAsync<ClassModel>($"api/classes/{ClassId}");
+        }
+        catch
+        {
+            errorMessage = "Error loading class details.";
+        }
+    }
+
+    private async Task ProcessPayment(string paymentType)
+    {
+        if (classModel == null) return;
+
+        isProcessing = true;
+        selectedPaymentType = paymentType;
+        errorMessage = "";
+
+        try
+        {
+            var request = new CreateClassPaymentRequest
+            {
+                ClassId = classModel.Id,
+                PaymentType = paymentType
+            };
+
+            var response = await Http.PostAsJsonAsync("api/payment/create-class-payment", request);
+            
+            if (response.IsSuccessStatusCode)
+            {
+                var result = await response.Content.ReadFromJsonAsync<PaymentSessionResponse>();
+                if (result != null && !string.IsNullOrEmpty(result.Url))
+                {
+                    Navigation.NavigateTo(result.Url, forceLoad: true);
+                }
+                else
+                {
+                    errorMessage = "Error creating payment session.";
+                }
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                errorMessage = $"Payment failed: {error}";
+            }
+        }
+        catch
+        {
+            errorMessage = "An error occurred while processing payment.";
+        }
+        finally
+        {
+            isProcessing = false;
+            selectedPaymentType = "";
+        }
+    }
+
+    private void GoBack()
+    {
+        Navigation.NavigateTo("/classes");
+    }
+
+    public class ClassModel
+    {
+        public int Id { get; set; }
+        public string Name { get; set; } = "";
+        public string? Description { get; set; }
+        public string Schedule { get; set; } = "";
+        public string Instructor { get; set; } = "";
+        public int MaxCapacity { get; set; }
+        public int AvailableSpots { get; set; }
+        public decimal DropInPrice { get; set; }
+        public decimal PackagePrice { get; set; }
+        public int PackageClassCount { get; set; }
+        public bool RequiresMembership { get; set; }
+        public bool AllowDropIn { get; set; }
+        public bool AllowPackagePurchase { get; set; }
+    }
+
+    public class CreateClassPaymentRequest
+    {
+        public int ClassId { get; set; }
+        public string PaymentType { get; set; } = "";
+    }
+
+    public class PaymentSessionResponse
+    {
+        public string SessionId { get; set; } = "";
+        public string Url { get; set; } = "";
+    }
+}

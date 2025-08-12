@@ -1,0 +1,69 @@
+@page "/payment-success"
+@inject NavigationManager Navigation
+@inject IJSRuntime JSRuntime
+
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card border-success">
+                <div class="card-header bg-success text-white text-center">
+                    <h3><i class="fas fa-check-circle"></i> Payment Successful!</h3>
+                </div>
+                <div class="card-body text-center">
+                    <div class="mb-4">
+                        <i class="fas fa-check-circle text-success" style="font-size: 4rem;"></i>
+                    </div>
+                    
+                    <h4>Thank you for your payment!</h4>
+                    <p class="text-muted">Your transaction has been processed successfully.</p>
+                    
+                    @if (!string.IsNullOrEmpty(sessionId))
+                    {
+                        <div class="alert alert-info">
+                            <strong>Transaction ID:</strong> @sessionId
+                        </div>
+                    }
+                    
+                    <div class="mt-4">
+                        <p>You will receive a receipt via email shortly.</p>
+                        <p>Your membership or class access has been activated.</p>
+                    </div>
+                    
+                    <div class="mt-4">
+                        <button class="btn btn-primary me-2" @onclick="GoToProfile">
+                            View My Profile
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="GoToClasses">
+                            Browse Classes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string sessionId = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var uri = Navigation.Uri;
+        if (uri.Contains("session_id="))
+        {
+            var sessionIdStart = uri.IndexOf("session_id=") + "session_id=".Length;
+            var sessionIdEnd = uri.IndexOf("&", sessionIdStart);
+            sessionId = sessionIdEnd > 0 ? uri.Substring(sessionIdStart, sessionIdEnd - sessionIdStart) : uri.Substring(sessionIdStart);
+        }
+    }
+
+    private void GoToProfile()
+    {
+        Navigation.NavigateTo("/profile");
+    }
+
+    private void GoToClasses()
+    {
+        Navigation.NavigateTo("/classes");
+    }
+}

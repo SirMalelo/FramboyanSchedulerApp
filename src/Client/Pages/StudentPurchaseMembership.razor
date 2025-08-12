@@ -1,0 +1,165 @@
+@page "/student/purchase-membership"
+@using Client.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@attribute [Authorize(Roles = "Student")]
+
+<PageTitle>Purchase Membership</PageTitle>
+
+<div class="container mt-4">
+    <h3>Available Memberships</h3>
+    <p class="text-muted">Choose a membership that fits your fitness goals.</p>
+
+    @if (membershipTypes == null)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!membershipTypes.Any())
+    {
+        <div class="alert alert-info">
+            <h5>No memberships available</h5>
+            <p>There are currently no membership types available for purchase. Please contact the studio for more information.</p>
+        </div>
+    }
+    else
+    {
+        <div class="row">
+            @foreach (var membership in membershipTypes.Where(m => m.IsActive && m.AllowOnlineSignup))
+            {
+                <div class="col-lg-4 col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header bg-primary text-white">
+                            <h5 class="card-title mb-0">@membership.Name</h5>
+                        </div>
+                        <div class="card-body d-flex flex-column">
+                            @if (!string.IsNullOrEmpty(membership.Description))
+                            {
+                                <p class="card-text">@membership.Description</p>
+                            }
+                            
+                            <div class="membership-details mb-3">
+                                <div class="d-flex justify-content-between">
+                                    <strong>Price:</strong>
+                                    <span class="text-success fw-bold">$@membership.Price.ToString("F2")</span>
+                                </div>
+                                
+                                @if (membership.SetupFee > 0)
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span>Setup Fee:</span>
+                                        <span>$@membership.SetupFee.ToString("F2")</span>
+                                    </div>
+                                }
+                                
+                                @if (membership.ClassCount.HasValue)
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span>Classes:</span>
+                                        <span>@membership.ClassCount</span>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span>Classes:</span>
+                                        <span class="text-success">Unlimited</span>
+                                    </div>
+                                }
+                                
+                                @if (membership.DurationDays.HasValue)
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span>Duration:</span>
+                                        <span>@membership.DurationDays days</span>
+                                    </div>
+                                }
+                                
+                                @if (membership.IsRecurring)
+                                {
+                                    <div class="d-flex justify-content-between">
+                                        <span>Billing:</span>
+                                        <span>Every @membership.BillingCycleDays days</span>
+                                    </div>
+                                }
+                            </div>
+                            
+                            <div class="mt-auto">
+                                @if (membership.RequiresApproval)
+                                {
+                                    <button class="btn btn-outline-primary w-100" @onclick="() => ApplyForMembership(membership.Id)">
+                                        Apply for Approval
+                                    </button>
+                                }
+                                else
+                                {
+                                    <button class="btn btn-success w-100" @onclick="() => PurchaseMembership(membership.Id)">
+                                        Purchase Now
+                                    </button>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info mt-3">
+            @statusMessage
+        </div>
+    }
+</div>
+
+@code {
+    private List<MembershipType>? membershipTypes;
+    private string? statusMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembershipTypes();
+    }
+
+    private async Task LoadMembershipTypes()
+    {
+        try
+        {
+            membershipTypes = await Http.GetFromJsonAsync<List<MembershipType>>("api/membership/types") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading membership types: {ex.Message}";
+        }
+    }
+
+    private async Task ApplyForMembership(int membershipTypeId)
+    {
+        try
+        {
+            var response = await Http.PostAsJsonAsync("api/membership/apply", new { MembershipTypeId = membershipTypeId });
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Membership application submitted successfully! The studio owner will review your application.";
+            }
+            else
+            {
+                var errorContent = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to apply for membership: {errorContent}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private void PurchaseMembership(int membershipTypeId)
+    {
+        Navigation.NavigateTo($"/payment/membership/{membershipTypeId}");
+    }
+}
