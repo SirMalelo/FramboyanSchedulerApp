@@ -1,0 +1,48 @@
+# Flutter
+*.log
+*.iml
+*.lock
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.dart_tool/
+build/
+.packages
+.pub/
+*.snap
+
+# Mobile app specific
+android/app/debug
+android/app/profile
+android/app/release
+ios/Runner/GoogleService-Info.plist
+android/app/google-services.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.development
+.env.production
+
+# API Keys (keep these secret!)
+lib/config/api_keys.dart
+firebase_options.dart
+
+# Build artifacts
+*.apk
+*.aab
+*.ipa
+
+# Temporary files
+*.tmp
+*.temp
