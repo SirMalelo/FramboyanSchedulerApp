@@ -1,0 +1,427 @@
+@page "/owner/memberships"
+@using Client.Models
+@inject HttpClient Http
+@inject NavigationManager Navigation
+@attribute [Authorize(Roles = "Owner")]
+
+<div class="container mt-4">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <h3>Membership Management</h3>
+            <p class="text-muted">View and manage all customer memberships</p>
+        </div>
+        <div class="col-md-6 text-end">
+            <button class="btn btn-primary" @onclick="LoadMemberships">
+                <span class="bi bi-arrow-clockwise"></span> Refresh
+            </button>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(statusMessage))
+    {
+        <div class="alert alert-info">@statusMessage</div>
+    }
+
+    <!-- Filter Options -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Filters</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select @bind="filterStatus" @bind:event="onchange" class="form-select">
+                        <option value="">All Memberships</option>
+                        <option value="active">Active Only</option>
+                        <option value="inactive">Inactive Only</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Membership Type</label>
+                    <select @bind="filterMembershipType" @bind:event="onchange" class="form-select">
+                        <option value="">All Types</option>
+                        @foreach (var type in membershipTypes)
+                        {
+                            <option value="@type.Id">@type.Name</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Search Member</label>
+                    <input type="text" @bind="searchTerm" @bind:event="onchange" class="form-control" placeholder="Search by name or email..." />
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button class="btn btn-outline-secondary" @onclick="ClearFilters">Clear</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Membership Summary Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h2>@activeMemberships</h2>
+                    <p class="mb-0">Active Memberships</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-warning text-dark">
+                <div class="card-body">
+                    <h2>@expiringMemberships</h2>
+                    <p class="mb-0">Expiring Soon</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-info text-white">
+                <div class="card-body">
+                    <h2>@totalRevenue.ToString("C")</h2>
+                    <p class="mb-0">Total Revenue</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center bg-primary text-white">
+                <div class="card-body">
+                    <h2>@totalMemberships</h2>
+                    <p class="mb-0">Total Memberships</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Memberships Table -->
+    @if (filteredMemberships == null)
+    {
+        <div class="d-flex justify-content-center">
+            <div class="spinner-border" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>
+    }
+    else if (!filteredMemberships.Any())
+    {
+        <div class="alert alert-info">
+            <h5>No memberships found</h5>
+            <p>No memberships match your current filters.</p>
+        </div>
+    }
+    else
+    {
+        <div class="card">
+            <div class="card-header">
+                <h5>Memberships (@filteredMemberships.Count)</h5>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Member</th>
+                                <th>Membership Type</th>
+                                <th>Start Date</th>
+                                <th>End Date</th>
+                                <th>Status</th>
+                                <th>Balance Due</th>
+                                <th>Classes Left</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var membership in filteredMemberships)
+                            {
+                                <tr class="@(membership.IsActive ? "" : "table-secondary")">
+                                    <td>
+                                        <div>
+                                            <strong>@(membership.UserName ?? "Unknown")</strong>
+                                            <br>
+                                            <small class="text-muted">@(membership.UserEmail ?? "")</small>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-primary">@membership.MembershipTypeName</span>
+                                        <br>
+                                        <small class="text-muted">$@membership.MembershipPrice.ToString("F2")</small>
+                                    </td>
+                                    <td>@membership.StartDate.ToString("MMM dd, yyyy")</td>
+                                    <td>
+                                        @if (membership.EndDate.HasValue)
+                                        {
+                                            <text>@membership.EndDate.Value.ToString("MMM dd, yyyy")</text>
+                                            @if (membership.EndDate.Value <= DateTime.Now.AddDays(7) && membership.IsActive)
+                                            {
+                                                <br><small class="text-warning">Expires Soon</small>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success">No Expiration</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (membership.IsActive)
+                                        {
+                                            <span class="badge bg-success">Active</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="badge bg-secondary">Inactive</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (membership.BalanceDue > 0)
+                                        {
+                                            <span class="text-danger fw-bold">$@membership.BalanceDue.ToString("F2")</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success">Paid</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        @if (membership.RemainingClasses.HasValue)
+                                        {
+                                            <span class="@(membership.RemainingClasses <= 3 ? "text-warning fw-bold" : "")">
+                                                @membership.RemainingClasses
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-success">Unlimited</span>
+                                        }
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button class="btn btn-sm btn-outline-primary" @onclick="() => ViewMemberDetails(membership.UserId)">
+                                                View
+                                            </button>
+                                            @if (membership.IsActive)
+                                            {
+                                                <button class="btn btn-sm btn-outline-warning" @onclick="() => SuspendMembership(membership.Id)">
+                                                    Suspend
+                                                </button>
+                                            }
+                                            else
+                                            {
+                                                <button class="btn btn-sm btn-outline-success" @onclick="() => ReactivateMembership(membership.Id)">
+                                                    Reactivate
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<OwnerMembershipView>? allMemberships;
+    private List<OwnerMembershipView> filteredMemberships = new();
+    private List<MembershipType> membershipTypes = new();
+    private string? statusMessage;
+    
+    // Filter properties with automatic filtering
+    private string _filterStatus = "";
+    private string filterStatus 
+    { 
+        get => _filterStatus; 
+        set 
+        { 
+            _filterStatus = value; 
+            ApplyFilters(); 
+        } 
+    }
+    
+    private string _filterMembershipType = "";
+    private string filterMembershipType 
+    { 
+        get => _filterMembershipType; 
+        set 
+        { 
+            _filterMembershipType = value; 
+            ApplyFilters(); 
+        } 
+    }
+    
+    private string _searchTerm = "";
+    private string searchTerm 
+    { 
+        get => _searchTerm; 
+        set 
+        { 
+            _searchTerm = value; 
+            ApplyFilters(); 
+        } 
+    }
+    
+    // Summary statistics
+    private int activeMemberships = 0;
+    private int expiringMemberships = 0;
+    private int totalMemberships = 0;
+    private decimal totalRevenue = 0;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadMembershipTypes();
+        await LoadMemberships();
+    }
+
+    private async Task LoadMembershipTypes()
+    {
+        try
+        {
+            membershipTypes = await Http.GetFromJsonAsync<List<MembershipType>>("api/membership/types") ?? new();
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading membership types: {ex.Message}";
+        }
+    }
+
+    private async Task LoadMemberships()
+    {
+        try
+        {
+            statusMessage = "Loading memberships...";
+            allMemberships = await Http.GetFromJsonAsync<List<OwnerMembershipView>>("api/membership/all-memberships-detailed") ?? new();
+            CalculateStatistics();
+            ApplyFilters();
+            statusMessage = null;
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error loading memberships: {ex.Message}";
+        }
+    }
+
+    private void CalculateStatistics()
+    {
+        if (allMemberships == null) return;
+        
+        activeMemberships = allMemberships.Count(m => m.IsActive);
+        expiringMemberships = allMemberships.Count(m => m.IsActive && m.EndDate.HasValue && m.EndDate.Value <= DateTime.Now.AddDays(7));
+        totalMemberships = allMemberships.Count;
+        totalRevenue = allMemberships.Sum(m => m.MembershipPrice - m.BalanceDue);
+    }
+
+    private void ApplyFilters()
+    {
+        if (allMemberships == null)
+        {
+            filteredMemberships = new();
+            return;
+        }
+
+        filteredMemberships = allMemberships.Where(m =>
+        {
+            // Status filter
+            if (!string.IsNullOrEmpty(filterStatus))
+            {
+                if (filterStatus == "active" && !m.IsActive) return false;
+                if (filterStatus == "inactive" && m.IsActive) return false;
+            }
+
+            // Membership type filter
+            if (!string.IsNullOrEmpty(filterMembershipType) && int.TryParse(filterMembershipType, out var typeId))
+            {
+                if (m.MembershipTypeId != typeId) return false;
+            }
+
+            // Search term filter
+            if (!string.IsNullOrEmpty(searchTerm))
+            {
+                var term = searchTerm.ToLower();
+                var matchesName = m.UserName?.ToLower().Contains(term) == true;
+                var matchesEmail = m.UserEmail?.ToLower().Contains(term) == true;
+                var matchesMembershipType = m.MembershipTypeName?.ToLower().Contains(term) == true;
+                
+                if (!matchesName && !matchesEmail && !matchesMembershipType) return false;
+            }
+
+            return true;
+        }).ToList();
+    }
+
+    private void ClearFilters()
+    {
+        _filterStatus = "";
+        _filterMembershipType = "";
+        _searchTerm = "";
+        ApplyFilters();
+    }
+
+    private void ViewMemberDetails(string userId)
+    {
+        Navigation.NavigateTo($"/owner/member/{userId}");
+    }
+
+    private async Task SuspendMembership(int membershipId)
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/membership/suspend/{membershipId}", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Membership suspended successfully.";
+                await LoadMemberships();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to suspend membership: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    private async Task ReactivateMembership(int membershipId)
+    {
+        try
+        {
+            var response = await Http.PutAsJsonAsync($"api/membership/reactivate/{membershipId}", new { });
+            if (response.IsSuccessStatusCode)
+            {
+                statusMessage = "Membership reactivated successfully.";
+                await LoadMemberships();
+            }
+            else
+            {
+                var error = await response.Content.ReadAsStringAsync();
+                statusMessage = $"Failed to reactivate membership: {error}";
+            }
+        }
+        catch (Exception ex)
+        {
+            statusMessage = $"Error: {ex.Message}";
+        }
+    }
+
+    public class OwnerMembershipView
+    {
+        public int Id { get; set; }
+        public string UserId { get; set; } = string.Empty;
+        public string? UserName { get; set; }
+        public string? UserEmail { get; set; }
+        public int MembershipTypeId { get; set; }
+        public string MembershipTypeName { get; set; } = string.Empty;
+        public decimal MembershipPrice { get; set; }
+        public DateTime StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public bool IsActive { get; set; }
+        public decimal BalanceDue { get; set; }
+        public int? RemainingClasses { get; set; }
+        public DateTime CreatedAt { get; set; }
+    }
+}

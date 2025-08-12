@@ -206,44 +206,66 @@ namespace FramboyanSchedulerApi.Controllers
         [Authorize]
         public async Task<IActionResult> ApplyMembership([FromBody] ApplyMembershipRequest req)
         {
-            if (req.MembershipTypeId <= 0)
-                return BadRequest("Valid MembershipTypeId is required.");
+            // Only allow membership application through Stripe payment now
+            return BadRequest("Memberships must be purchased through the payment system. Please use the purchase membership option.");
+        }
 
-            var userId = _userManager.GetUserId(User);
-            if (string.IsNullOrEmpty(userId))
-                return Unauthorized("User not found.");
+        // OWNER: Get all memberships with detailed user information
+        [HttpGet("all-memberships-detailed")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> GetAllMembershipsDetailed()
+        {
+            var memberships = await _db.Memberships
+                .Include(m => m.MembershipType)
+                .Include(m => m.User)
+                .Select(m => new OwnerMembershipView
+                {
+                    Id = m.Id,
+                    UserId = m.UserId,
+                    UserName = m.User.FullName ?? m.User.UserName,
+                    UserEmail = m.User.Email,
+                    MembershipTypeId = m.MembershipTypeId,
+                    MembershipTypeName = m.MembershipType.Name,
+                    MembershipPrice = m.MembershipType.Price,
+                    StartDate = m.StartDate,
+                    EndDate = m.EndDate,
+                    IsActive = m.IsActive,
+                    BalanceDue = m.BalanceDue,
+                    RemainingClasses = m.RemainingClasses,
+                    CreatedAt = m.CreatedAt
+                })
+                .OrderByDescending(m => m.CreatedAt)
+                .ToListAsync();
+                
+            return Ok(memberships);
+        }
 
-            var type = await _db.MembershipTypes.FindAsync(req.MembershipTypeId);
-            if (type == null) return NotFound("Membership type not found.");
-
-            // Check if user already has an active membership of this type
-            var existingMembership = await _db.Memberships
-                .Where(m => m.UserId == userId && m.MembershipTypeId == req.MembershipTypeId && m.IsActive)
-                .FirstOrDefaultAsync();
+        // OWNER: Suspend a membership
+        [HttpPut("suspend/{membershipId}")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> SuspendMembership(int membershipId)
+        {
+            var membership = await _db.Memberships.FindAsync(membershipId);
+            if (membership == null) return NotFound("Membership not found.");
             
-            if (existingMembership != null)
-                return BadRequest("You already have an active membership of this type.");
-
-            var membership = new Membership
-            {
-                UserId = userId!,
-                MembershipTypeId = type.Id,
-                StartDate = DateTime.UtcNow,
-                EndDate = type.DurationDays.HasValue ? DateTime.UtcNow.AddDays(type.DurationDays.Value) : (DateTime?)null,
-                BalanceDue = type.Price,
-                IsActive = true // For now, auto-activate. Change to false if approval is needed.
-            };
+            membership.IsActive = false;
+            await _db.SaveChangesAsync();
             
-            try
-            {
-                _db.Memberships.Add(membership);
-                await _db.SaveChangesAsync();
-                return Ok(membership);
-            }
-            catch (Exception ex)
-            {
-                return BadRequest($"Failed to create membership: {ex.Message}");
-            }
+            return Ok(new { message = "Membership suspended successfully." });
+        }
+
+        // OWNER: Reactivate a membership
+        [HttpPut("reactivate/{membershipId}")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> ReactivateMembership(int membershipId)
+        {
+            var membership = await _db.Memberships.FindAsync(membershipId);
+            if (membership == null) return NotFound("Membership not found.");
+            
+            membership.IsActive = true;
+            await _db.SaveChangesAsync();
+            
+            return Ok(new { message = "Membership reactivated successfully." });
         }
 
         public class AssignMembershipRequest
@@ -261,6 +283,23 @@ namespace FramboyanSchedulerApi.Controllers
             [Required]
             [Range(1, int.MaxValue, ErrorMessage = "MembershipTypeId must be greater than 0")]
             public int MembershipTypeId { get; set; }
+        }
+
+        public class OwnerMembershipView
+        {
+            public int Id { get; set; }
+            public string UserId { get; set; } = string.Empty;
+            public string? UserName { get; set; }
+            public string? UserEmail { get; set; }
+            public int MembershipTypeId { get; set; }
+            public string MembershipTypeName { get; set; } = string.Empty;
+            public decimal MembershipPrice { get; set; }
+            public DateTime StartDate { get; set; }
+            public DateTime? EndDate { get; set; }
+            public bool IsActive { get; set; }
+            public decimal BalanceDue { get; set; }
+            public int? RemainingClasses { get; set; }
+            public DateTime CreatedAt { get; set; }
         }
     }
 }

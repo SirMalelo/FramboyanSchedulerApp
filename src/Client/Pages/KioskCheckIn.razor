@@ -78,8 +78,15 @@
                                         <div class="card h-100 @(selectedClassId == classItem.Id ? "border-primary bg-primary bg-opacity-10" : "border-secondary")" 
                                              style="cursor: pointer;" @onclick="() => SelectClass(classItem.Id)">
                                             <div class="card-body">
-                                                <h5 class="card-title">@classItem.Name</h5>
+                                                <div class="d-flex justify-content-between align-items-start mb-2">
+                                                    <h5 class="card-title">@classItem.Name</h5>
+                                                    @if (classItem.Status != null)
+                                                    {
+                                                        <span class="badge @GetStatusBadgeClass(classItem.Status)">@classItem.Status</span>
+                                                    }
+                                                </div>
                                                 <p class="card-text">
+                                                    <strong>Date:</strong> @classItem.StartTime.ToString("MMM dd, yyyy")<br>
                                                     <strong>Time:</strong> @classItem.StartTime.ToString("h:mm tt") - @classItem.EndTime.ToString("h:mm tt")<br>
                                                     <strong>Instructor:</strong> @(classItem.InstructorName ?? "TBD")<br>
                                                     <strong>Checked In:</strong> @classItem.CheckedInCount / @classItem.MaxCapacity
@@ -97,8 +104,8 @@
                         else
                         {
                             <div class="alert alert-info">
-                                <i class="bi bi-info-circle"></i> No classes are currently available for check-in.
-                                <br><small>Check-in is available 30 minutes before class start until 1 hour after.</small>
+                                <i class="bi bi-info-circle"></i> No classes found.
+                                <br><small>All active classes will appear here regardless of timing.</small>
                             </div>
                         }
                     </div>
@@ -215,7 +222,8 @@
     {
         try
         {
-            currentClasses = await Http.GetFromJsonAsync<List<CurrentClassModel>>("api/class/current-classes") ?? new();
+            // Use the new endpoint that shows all classes regardless of timing
+            currentClasses = await Http.GetFromJsonAsync<List<CurrentClassModel>>("api/class/all-classes") ?? new();
         }
         catch (Exception ex)
         {
@@ -304,6 +312,20 @@
         public int BookedCount { get; set; }
         public int CheckedInCount { get; set; }
         public int AvailableSpots { get; set; }
+        public string Status { get; set; } = string.Empty;
+        public bool CanCheckIn { get; set; }
+    }
+
+    private string GetStatusBadgeClass(string status)
+    {
+        return status switch
+        {
+            "Completed" => "bg-secondary",
+            "In Progress" => "bg-success",
+            "Starting Soon" => "bg-warning",
+            "Upcoming" => "bg-primary",
+            _ => "bg-info"
+        };
     }
 
     public class KioskCheckInRequest

@@ -384,12 +384,16 @@ namespace FramboyanSchedulerApi.Controllers
             if (classModel == null) return NotFound("Class not found.");
             if (!classModel.IsActive) return BadRequest("Class is not active.");
             
-            // Allow check-in from 30 minutes before class until 1 hour after start
-            var checkInWindow = TimeSpan.FromMinutes(30);
-            var extendedWindow = TimeSpan.FromHours(1);
+            // For kiosk check-in, allow more flexible timing - from 1 hour before to 2 hours after class start
+            var checkInWindow = TimeSpan.FromHours(1);
+            var extendedWindow = TimeSpan.FromHours(2);
             if (DateTime.Now < classModel.StartTime.Subtract(checkInWindow) || 
                 DateTime.Now > classModel.StartTime.Add(extendedWindow))
-                return BadRequest("Check-in window is 30 minutes before class start to 1 hour after class start.");
+            {
+                // If outside the window, show a warning but still allow check-in for owner discretion
+                var warningMessage = $"Note: Check-in is outside normal window. Class starts at {classModel.StartTime:h:mm tt}.";
+                // Don't return error, just proceed with a warning
+            }
 
             // Check if student exists
             var student = await _userManager.FindByIdAsync(request.StudentId);
@@ -445,23 +449,16 @@ namespace FramboyanSchedulerApi.Controllers
             }
         }
 
-        // OWNER/KIOSK: Get current classes available for check-in
+        // OWNER/KIOSK: Get all active classes for kiosk check-in
         [HttpGet("current-classes")]
         [Authorize(Roles = "Owner")]
         public async Task<IActionResult> GetCurrentClasses()
         {
             var now = DateTime.Now;
-            var checkInWindow = TimeSpan.FromMinutes(30);
-            var extendedWindow = TimeSpan.FromHours(1);
             
-            // Calculate the time boundaries before the query
-            var earliestCheckIn = now.Subtract(checkInWindow);
-            var latestCheckIn = now.Add(extendedWindow);
-            
+            // Get all active classes for today and future dates
             var classes = await _db.Classes
-                .Where(c => c.IsActive && 
-                           c.StartTime >= earliestCheckIn && 
-                           c.StartTime <= latestCheckIn)
+                .Where(c => c.IsActive && c.StartTime.Date >= now.Date)
                 .Include(c => c.Attendances)
                 .Select(c => new {
                     c.Id,
@@ -473,9 +470,47 @@ namespace FramboyanSchedulerApi.Controllers
                     c.InstructorName,
                     BookedCount = c.Attendances.Count(a => a.IsConfirmed),
                     CheckedInCount = c.Attendances.Count(a => a.IsCheckedIn),
-                    AvailableSpots = c.MaxCapacity - c.Attendances.Count(a => a.IsConfirmed)
+                    AvailableSpots = c.MaxCapacity - c.Attendances.Count(a => a.IsConfirmed),
+                    // Add status indicators for the kiosk
+                    IsUpcoming = c.StartTime > now.AddMinutes(30),
+                    IsActive = c.StartTime <= now.AddMinutes(30) && c.EndTime >= now.AddMinutes(-30),
+                    IsCompleted = c.EndTime < now.AddMinutes(-30)
                 })
                 .OrderBy(c => c.StartTime)
+                .ToListAsync();
+
+            return Ok(classes);
+        }
+
+        // OWNER/KIOSK: Get all classes (no time restrictions) for kiosk management
+        [HttpGet("all-classes")]
+        [Authorize(Roles = "Owner")]
+        public async Task<IActionResult> GetAllClassesForKiosk()
+        {
+            var now = DateTime.Now;
+            
+            // Get all active classes including past ones for the last 7 days
+            var classes = await _db.Classes
+                .Where(c => c.IsActive && c.StartTime >= now.Date.AddDays(-7))
+                .Include(c => c.Attendances)
+                .Select(c => new {
+                    c.Id,
+                    c.Name,
+                    c.Description,
+                    c.StartTime,
+                    c.EndTime,
+                    c.MaxCapacity,
+                    c.InstructorName,
+                    BookedCount = c.Attendances.Count(a => a.IsConfirmed),
+                    CheckedInCount = c.Attendances.Count(a => a.IsCheckedIn),
+                    AvailableSpots = c.MaxCapacity - c.Attendances.Count(a => a.IsConfirmed),
+                    // Status indicators
+                    Status = c.EndTime < now ? "Completed" : 
+                            c.StartTime <= now && c.EndTime >= now ? "In Progress" :
+                            c.StartTime <= now.AddMinutes(30) ? "Starting Soon" : "Upcoming",
+                    CanCheckIn = c.StartTime <= now.AddMinutes(30) && c.EndTime >= now.AddMinutes(-60)
+                })
+                .OrderByDescending(c => c.StartTime)
                 .ToListAsync();
 
             return Ok(classes);

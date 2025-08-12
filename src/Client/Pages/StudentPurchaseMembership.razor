@@ -7,8 +7,8 @@
 <PageTitle>Purchase Membership</PageTitle>
 
 <div class="container mt-4">
-    <h3>Available Memberships</h3>
-    <p class="text-muted">Choose a membership that fits your fitness goals.</p>
+    <h3>Purchase Membership</h3>
+    <p class="text-muted">Choose a membership that fits your fitness goals. All memberships require payment through our secure payment system.</p>
 
     @if (membershipTypes == null)
     {
@@ -90,9 +90,10 @@
                             <div class="mt-auto">
                                 @if (membership.RequiresApproval)
                                 {
-                                    <button class="btn btn-outline-primary w-100" @onclick="() => ApplyForMembership(membership.Id)">
-                                        Apply for Approval
+                                    <button class="btn btn-primary w-100" @onclick="() => PurchaseMembership(membership.Id)">
+                                        Purchase & Apply
                                     </button>
+                                    <small class="text-muted mt-1 d-block">Payment required before approval process</small>
                                 }
                                 else
                                 {
@@ -134,27 +135,6 @@
         catch (Exception ex)
         {
             statusMessage = $"Error loading membership types: {ex.Message}";
-        }
-    }
-
-    private async Task ApplyForMembership(int membershipTypeId)
-    {
-        try
-        {
-            var response = await Http.PostAsJsonAsync("api/membership/apply", new { MembershipTypeId = membershipTypeId });
-            if (response.IsSuccessStatusCode)
-            {
-                statusMessage = "Membership application submitted successfully! The studio owner will review your application.";
-            }
-            else
-            {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                statusMessage = $"Failed to apply for membership: {errorContent}";
-            }
-        }
-        catch (Exception ex)
-        {
-            statusMessage = $"Error: {ex.Message}";
         }
     }
 
