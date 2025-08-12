@@ -1,0 +1,82 @@
+name: Deploy tjobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: 🛎️ Checkout codee
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  AZURE_API_APP_NAME: 'framboyan-api-prod'    # Replace with your API app name
+  AZURE_CLIENT_APP_NAME: 'framboyan-client-prod'  # Replace with your client app name
+  DOTNET_VERSION: '9.0.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+    - name: 🛎️ Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+
+    - name: 🏗️ Build solution
+      run: dotnet build --configuration Release --no-restore
+
+    - name: 🧪 Run tests
+      run: dotnet test --no-restore --verbosity normal
+
+    - name: 📦 Publish API
+      run: dotnet publish src/FramboyanSchedulerApi/FramboyanSchedulerApi.csproj -c Release -o api-release
+
+    - name: 📦 Publish Client
+      run: dotnet publish src/Client/Client.csproj -c Release -o client-release
+
+    - name: ⚙️ Update client configuration
+      run: |
+        $configPath = "client-release/wwwroot/config.js"
+        if (Test-Path $configPath) {
+          (Get-Content $configPath) -replace '#{API_BASE_URL}#', 'https://${{ env.AZURE_API_APP_NAME }}.azurewebsites.net' | Set-Content $configPath
+        }
+
+    - name: 🚀 Deploy API to Azure
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_API_APP_NAME }}
+        publish-profile: ${{ secrets.AZURE_API_PUBLISH_PROFILE }}
+        package: api-release
+
+    - name: 🌐 Deploy Client to Azure
+      uses: azure/webapps-deploy@v2
+      with:
+        app-name: ${{ env.AZURE_CLIENT_APP_NAME }}
+        publish-profile: ${{ secrets.AZURE_CLIENT_PUBLISH_PROFILE }}
+        package: client-release
+
+    - name: 🔍 Health Check API
+      run: |
+        sleep 30
+        curl -f https://${{ env.AZURE_API_APP_NAME }}.azurewebsites.net/health || exit 1
+
+    - name: 🔍 Health Check Client
+      run: |
+        curl -f https://${{ env.AZURE_CLIENT_APP_NAME }}.azurewebsites.net || exit 1
+
+    - name: 📊 Deployment Summary
+      run: |
+        echo "🎉 Deployment completed successfully!"
+        echo "🌐 API URL: https://${{ env.AZURE_API_APP_NAME }}.azurewebsites.net"
+        echo "💻 Client URL: https://${{ env.AZURE_CLIENT_APP_NAME }}.azurewebsites.net"

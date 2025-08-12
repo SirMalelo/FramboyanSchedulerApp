@@ -16,22 +16,9 @@ builder.Services.AddScoped<AuthenticationStateProvider, JwtAuthenticationStatePr
 // Environment-aware HTTP client configuration
 builder.Services.AddScoped(sp =>
 {
-    var jsRuntime = sp.GetRequiredService<IJSRuntime>();
-    var apiBaseUrl = "http://localhost:5117"; // Default fallback
-    
-    try
-    {
-        // Try to get from window.appConfig if available (production)
-        var configBaseUrl = jsRuntime.InvokeAsync<string>("eval", "window.appConfig?.apiBaseUrl").Result;
-        if (!string.IsNullOrEmpty(configBaseUrl) && !configBaseUrl.Contains("#{"))
-        {
-            apiBaseUrl = configBaseUrl;
-        }
-    }
-    catch
-    {
-        // Fall back to default for development
-    }
+    // For now, use localhost for development
+    // In production, this will be replaced by the build process
+    var apiBaseUrl = "http://localhost:5117";
     
     return new HttpClient { BaseAddress = new Uri(apiBaseUrl) };
 });
