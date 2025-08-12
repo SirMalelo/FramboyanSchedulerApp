@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Identity;
 using FramboyanSchedulerApi.Models;
+using FramboyanSchedulerApi.Services;
 using System.Net.Mail;
 using System.Net;
 using System.Threading.Tasks;
@@ -14,12 +15,14 @@ namespace FramboyanSchedulerApi.Controllers
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IConfiguration _config;
+        private readonly IEmailService _emailService;
 
-        public AuthController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration config)
+        public AuthController(UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager, IConfiguration config, IEmailService emailService)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _config = config;
+            _emailService = emailService;
         }
 
         [HttpPost("register")]
@@ -53,6 +56,18 @@ namespace FramboyanSchedulerApi.Controllers
                     await _userManager.AddToRoleAsync(user, "Student");
                 }
 
+                // Send welcome email
+                try
+                {
+                    await _emailService.SendWelcomeEmailAsync(user.Email!, user.FullName ?? user.UserName!);
+                }
+                catch (Exception ex)
+                {
+                    // Log error but don't fail registration
+                    Console.WriteLine($"Failed to send welcome email: {ex.Message}");
+                }
+
+                // Keep existing email code as fallback
                 try
                 {
                     var smtpHost = _config["Smtp:Host"] ?? Environment.GetEnvironmentVariable("SMTP_HOST");

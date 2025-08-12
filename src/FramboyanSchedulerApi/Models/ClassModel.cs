@@ -29,6 +29,22 @@ namespace FramboyanSchedulerApi.Models
         // Navigation properties
         public List<Attendance> Attendances { get; set; } = new();
         
+        // Payment Information
+        [Range(0, double.MaxValue)]
+        public decimal DropInPrice { get; set; } = 0m;
+        
+        [Range(0, double.MaxValue)]
+        public decimal PackagePrice { get; set; } = 0m; // For class packages
+        
+        [Range(1, 100)]
+        public int PackageClassCount { get; set; } = 1; // Number of classes in package
+        
+        public bool RequiresMembership { get; set; } = false;
+        
+        public bool AllowDropIn { get; set; } = true;
+        
+        public bool AllowPackagePurchase { get; set; } = false;
+        
         // Computed property for available spots
         public int AvailableSpots => MaxCapacity - Attendances.Count(a => a.IsConfirmed);
     }

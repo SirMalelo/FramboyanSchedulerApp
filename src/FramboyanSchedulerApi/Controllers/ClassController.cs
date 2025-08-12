@@ -454,10 +454,14 @@ namespace FramboyanSchedulerApi.Controllers
             var checkInWindow = TimeSpan.FromMinutes(30);
             var extendedWindow = TimeSpan.FromHours(1);
             
+            // Calculate the time boundaries before the query
+            var earliestCheckIn = now.Subtract(checkInWindow);
+            var latestCheckIn = now.Add(extendedWindow);
+            
             var classes = await _db.Classes
                 .Where(c => c.IsActive && 
-                           now >= c.StartTime.Subtract(checkInWindow) && 
-                           now <= c.StartTime.Add(extendedWindow))
+                           c.StartTime >= earliestCheckIn && 
+                           c.StartTime <= latestCheckIn)
                 .Include(c => c.Attendances)
                 .Select(c => new {
                     c.Id,

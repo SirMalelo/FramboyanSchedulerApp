@@ -8,8 +8,8 @@ using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Register email service (replace with real implementation for production)
-builder.Services.AddScoped<FramboyanSchedulerApi.Services.IEmailService, FramboyanSchedulerApi.Services.FakeEmailService>();
+// Register email service
+builder.Services.AddScoped<FramboyanSchedulerApi.Services.IEmailService, FramboyanSchedulerApi.Services.EmailService>();
 
 // CORS Configuration - Environment specific
 var isDevelopment = builder.Environment.IsDevelopment();

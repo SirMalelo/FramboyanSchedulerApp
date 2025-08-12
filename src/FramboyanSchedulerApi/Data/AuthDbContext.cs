@@ -15,6 +15,11 @@ namespace FramboyanSchedulerApi.Data
         public DbSet<Membership> Memberships { get; set; }
         public DbSet<PaymentMethod> PaymentMethods { get; set; }
         public DbSet<SiteCustomization> SiteCustomizations { get; set; }
+    public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
+    public DbSet<StripeSettings> StripeSettings { get; set; }
+    public DbSet<PaymentSettings> PaymentSettings { get; set; }
+    public DbSet<EmailSettings> EmailSettings { get; set; }
+    public DbSet<EmailLog> EmailLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
